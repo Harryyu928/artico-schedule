@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   Plus, 
   Search, 
   Edit2, 
   Trash2,
   MoreVertical,
-  User
+  User,
+  Settings,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +48,16 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
+interface Course {
+  id: string;
+  courseId: string;
+  name: string;
+  type: string;
+  category: string;
+  duration: string;
+  description?: string;
+}
+
 interface Teacher {
   id: string;
   teacherId: string;
@@ -58,6 +71,7 @@ interface Teacher {
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,30 +87,22 @@ export default function TeachersPage() {
     teacherType: 'full_time',
   });
 
-  // 课程代号到完整名称的映射
-  const courseNameMap: Record<string, string> = {
-    'F-GD': 'F-GD 游戏设计基础',
-    'F-TA': 'F-TA 技术艺术基础',
-    'F-GA': 'F-GA 游戏策划基础',
-    'F-3D': 'F-3D 3D建模基础',
-    'F-AN': 'F-AN 游戏动画基础',
-    'P-GD': 'P-GD 游戏设计进阶',
-    'P-AN': 'P-AN 游戏动画进阶',
-    'P-GA': 'P-GA 游戏策划进阶',
-    'P-CA': 'P-CA 角色设计',
-    'P-3DGA': 'P-3DGA 3D游戏艺术',
-  };
-
-  // 按类型分类课程
-  const foundationCourses = ['F-GD', 'F-TA', 'F-GA', 'F-3D', 'F-AN']; // 基础课
-  const projectCourses = ['P-GD', 'P-AN', 'P-GA', 'P-CA', 'P-3DGA']; // 项目课
-
-  const courseOptions = [...foundationCourses, ...projectCourses];
-
-  // 获取导师列表
+  // 获取导师和课程列表
   useEffect(() => {
     fetchTeachers();
+    fetchCourses();
   }, []);
+
+  // 获取课程列表
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch('/api/courses');
+      const data = await response.json();
+      setCourses(data.courses || []);
+    } catch (error) {
+      console.error('获取课程列表失败:', error);
+    }
+  };
 
   const fetchTeachers = async () => {
     try {
@@ -115,6 +121,20 @@ export default function TeachersPage() {
       setLoading(false);
     }
   };
+
+  // 基于课程数据动态计算
+  const courseNameMap: Record<string, string> = courses.reduce((acc, course) => {
+    acc[course.category] = `${course.category} ${course.name}`;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const foundationCourses = courses
+    .filter(c => c.type === '基础课')
+    .map(c => c.category);
+  
+  const projectCourses = courses
+    .filter(c => c.type === '项目课')
+    .map(c => c.category);
 
   // 创建或更新导师
   const handleSubmit = async (e: React.FormEvent) => {
@@ -289,63 +309,95 @@ export default function TeachersPage() {
               </div>
 
               <div className="space-y-3">
-                <Label>可授课程</Label>
-                
-                {/* 基础课 */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
-                      基础课
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">Foundation</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {foundationCourses.map(course => (
-                      <Button
-                        key={course}
-                        type="button"
-                        variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => toggleCourse(course)}
-                        className={`justify-start text-left h-auto py-2 px-3 ${
-                          formData.teachableCourses.includes(course) 
-                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                            : 'border-orange-200 hover:bg-orange-50'
-                        }`}
-                      >
-                        <span className="text-xs">{courseNameMap[course]}</span>
-                      </Button>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between">
+                  <Label>可授课程</Label>
+                  <Link href="/courses" target="_blank">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-muted-foreground hover:text-orange-600"
+                    >
+                      <Settings className="h-3 w-3 mr-1" />
+                      管理课程库
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </Button>
+                  </Link>
                 </div>
 
-                {/* 项目课 */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
-                      项目课
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">Project</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {projectCourses.map(course => (
-                      <Button
-                        key={course}
-                        type="button"
-                        variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => toggleCourse(course)}
-                        className={`justify-start text-left h-auto py-2 px-3 ${
-                          formData.teachableCourses.includes(course) 
-                            ? 'bg-amber-500 hover:bg-amber-600 text-white' 
-                            : 'border-amber-200 hover:bg-amber-50'
-                        }`}
-                      >
-                        <span className="text-xs">{courseNameMap[course]}</span>
+                {courses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 px-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
+                    <p className="text-sm text-muted-foreground mb-3">课程库暂无课程</p>
+                    <Link href="/courses" target="_blank">
+                      <Button type="button" variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        前往添加课程
                       </Button>
-                    ))}
+                    </Link>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* 基础课 */}
+                    {foundationCourses.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                            基础课
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Foundation ({foundationCourses.length})</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {foundationCourses.map(course => (
+                            <Button
+                              key={course}
+                              type="button"
+                              variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => toggleCourse(course)}
+                              className={`justify-start text-left h-auto py-2 px-3 ${
+                                formData.teachableCourses.includes(course) 
+                                  ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                  : 'border-orange-200 hover:bg-orange-50'
+                              }`}
+                            >
+                              <span className="text-xs">{courseNameMap[course]}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 项目课 */}
+                    {projectCourses.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            项目课
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Project ({projectCourses.length})</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {projectCourses.map(course => (
+                            <Button
+                              key={course}
+                              type="button"
+                              variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => toggleCourse(course)}
+                              className={`justify-start text-left h-auto py-2 px-3 ${
+                                formData.teachableCourses.includes(course) 
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                                  : 'border-amber-200 hover:bg-amber-50'
+                              }`}
+                            >
+                              <span className="text-xs">{courseNameMap[course]}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="space-y-2">
