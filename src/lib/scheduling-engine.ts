@@ -164,6 +164,7 @@ export class SchedulingEngine {
               student: student as any,
               teacher: teacher as any,
               course: course as any,
+              hours: schedule.hours || 2,
             });
             scheduled = true;
 
