@@ -87,6 +87,11 @@ export const userRoleEnum = pgEnum('user_role', [
   '管理员',
 ] as const);
 
+export const teacherTypeEnum = pgEnum('teacher_type', [
+  '全职',
+  '兼职',
+] as const);
+
 export const weekDayEnum = pgEnum('week_day', [
   '周一',
   '周二',
@@ -159,6 +164,43 @@ export const applicationStatusEnum = pgEnum('application_status', [
   '已拒绝',
 ] as const);
 
+// ========== 用户认证相关表 ==========
+
+// 用户表
+export const users = pgTable('users', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  username: varchar('username', { length: 50 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  role: userRoleEnum('role').notNull(),
+  
+  // 关联信息（根据角色不同，关联不同的实体）
+  teacherId: varchar('teacher_id', { length: 36 }).references(() => teachers.id, { onDelete: 'set null' }),
+  studentId: varchar('student_id', { length: 36 }).references(() => students.id, { onDelete: 'set null' }),
+  
+  // 基本信息
+  name: varchar('name', { length: 100 }).notNull(),
+  email: varchar('email', { length: 200 }),
+  avatar: varchar('avatar', { length: 500 }),
+  
+  // 状态
+  isActive: boolean('is_active').notNull().default(true),
+  lastLoginAt: timestamp('last_login_at'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 会话表
+export const sessions = pgTable('sessions', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  userId: varchar('user_id', { length: 36 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ========== 业务表 ==========
+
 // 学生表
 export const students = pgTable('students', {
   id: varchar('id', { length: 36 }).primaryKey(),
@@ -205,8 +247,12 @@ export const teachers = pgTable('teachers', {
   teacherId: varchar('teacher_id', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 100 }).notNull(),
   teachableCourses: courseCategoryEnum('teachable_courses').array().notNull(),
+  teacherType: teacherTypeEnum('teacher_type').notNull().default('全职'),
   maxWeeklyHours: integer('max_weekly_hours').notNull().default(20),
   currentHours: integer('current_hours').notNull().default(0),
+  email: varchar('email', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
+  bio: text('bio'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -395,3 +441,9 @@ export type CourseSelectionItem = typeof courseSelectionItems.$inferSelect;
 export type NewCourseSelectionItem = typeof courseSelectionItems.$inferInsert;
 export type ClassRecord = typeof classRecords.$inferSelect;
 export type NewClassRecord = typeof classRecords.$inferInsert;
+
+// 用户认证类型导出
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
