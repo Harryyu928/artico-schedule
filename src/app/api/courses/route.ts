@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const courses = await getCourses({ type, category, limit, offset });
     
-    return NextResponse.json(courses);
+    return NextResponse.json({ courses });
   } catch (error) {
     console.error('获取课程列表失败:', error);
     return NextResponse.json(

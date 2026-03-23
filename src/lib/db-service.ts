@@ -249,8 +249,8 @@ export async function getCourses(options?: {
   offset?: number;
 }) {
   try {
-    let query = db.select().from(courses);
-    return query;
+    const result = await db.select().from(courses);
+    return result;
   } catch (error) {
     console.error('获取课程列表失败:', error);
     return [];
