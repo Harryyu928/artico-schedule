@@ -55,72 +55,94 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --radius: 0.75rem;
+  
+  /* 背景和前景 */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.15 0.02 30);
+  
+  /* 卡片 */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.15 0.02 30);
+  
+  /* 弹出层 */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.15 0.02 30);
+  
+  /* 主色调 - 橙色系 */
+  --primary: oklch(0.65 0.22 50);
+  --primary-foreground: oklch(1 0 0);
+  
+  /* 次要色 */
+  --secondary: oklch(0.97 0.01 50);
+  --secondary-foreground: oklch(0.25 0.02 30);
+  
+  /* 柔和色 */
+  --muted: oklch(0.96 0.01 50);
+  --muted-foreground: oklch(0.5 0.02 30);
+  
+  /* 强调色 */
+  --accent: oklch(0.95 0.03 50);
+  --accent-foreground: oklch(0.25 0.02 30);
+  
+  /* 危险色 */
+  --destructive: oklch(0.6 0.25 25);
+  
+  /* 边框和输入 */
+  --border: oklch(0.9 0.01 50);
+  --input: oklch(0.92 0.01 50);
+  --ring: oklch(0.65 0.22 50);
+  
+  /* 图表色系 - 橙色主题 */
+  --chart-1: oklch(0.65 0.22 50);
+  --chart-2: oklch(0.7 0.18 45);
+  --chart-3: oklch(0.75 0.15 40);
+  --chart-4: oklch(0.68 0.2 55);
+  --chart-5: oklch(0.72 0.17 60);
+  
+  /* 侧边栏 */
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0.25 0.02 30);
+  --sidebar-primary: oklch(0.65 0.22 50);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.96 0.02 50);
+  --sidebar-accent-foreground: oklch(0.25 0.02 30);
+  --sidebar-border: oklch(0.92 0.01 50);
+  --sidebar-ring: oklch(0.65 0.22 50);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.12 0.01 30);
+  --foreground: oklch(0.95 0.01 50);
+  --card: oklch(0.16 0.01 30);
+  --card-foreground: oklch(0.95 0.01 50);
+  --popover: oklch(0.16 0.01 30);
+  --popover-foreground: oklch(0.95 0.01 50);
+  --primary: oklch(0.7 0.22 50);
+  --primary-foreground: oklch(0.12 0.01 30);
+  --secondary: oklch(0.2 0.02 30);
+  --secondary-foreground: oklch(0.95 0.01 50);
+  --muted: oklch(0.2 0.01 30);
+  --muted-foreground: oklch(0.65 0.02 50);
+  --accent: oklch(0.25 0.03 50);
+  --accent-foreground: oklch(0.95 0.01 50);
+  --destructive: oklch(0.65 0.25 25);
+  --border: oklch(0.25 0.01 30);
+  --input: oklch(0.25 0.01 30);
+  --ring: oklch(0.7 0.22 50);
+  --chart-1: oklch(0.7 0.22 50);
+  --chart-2: oklch(0.65 0.18 45);
+  --chart-3: oklch(0.6 0.15 40);
+  --chart-4: oklch(0.68 0.2 55);
+  --chart-5: oklch(0.72 0.17 60);
+  --sidebar: oklch(0.14 0.01 30);
+  --sidebar-foreground: oklch(0.95 0.01 50);
+  --sidebar-primary: oklch(0.7 0.22 50);
+  --sidebar-primary-foreground: oklch(0.12 0.01 30);
+  --sidebar-accent: oklch(0.22 0.02 30);
+  --sidebar-accent-foreground: oklch(0.95 0.01 50);
+  --sidebar-border: oklch(0.25 0.01 30);
+  --sidebar-ring: oklch(0.7 0.22 50);
 }
 
 @layer base {
@@ -128,10 +150,60 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
 body {
   @apply font-sans;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(0.96 0.01 50);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.75 0.12 50);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.22 50);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: oklch(0.2 0.01 30);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.35 0.08 50);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.45 0.12 50);
+}
+
+/* 渐变背景 */
+.gradient-orange {
+  background: linear-gradient(135deg, oklch(0.65 0.22 50), oklch(0.7 0.18 45));
+}
+
+.gradient-orange-light {
+  background: linear-gradient(135deg, oklch(0.95 0.05 50), oklch(0.98 0.02 50));
+}
+
+/* 阴影效果 */
+.shadow-orange {
+  box-shadow: 0 4px 20px oklch(0.65 0.22 50 / 0.15);
+}
+
+.shadow-orange-lg {
+  box-shadow: 0 8px 30px oklch(0.65 0.22 50 / 0.2);
 }

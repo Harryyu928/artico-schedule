@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { 
   Users, 
   GraduationCap, 
   BookOpen, 
   Calendar,
-  TrendingUp,
   Clock,
-  AlertCircle
+  TrendingUp,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +35,6 @@ export default function DashboardContent() {
     this_week_hours: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [scheduling, setScheduling] = useState(false);
 
   useEffect(() => {
     fetchStatistics();
@@ -53,237 +54,263 @@ export default function DashboardContent() {
     }
   }
 
-  async function handleAutoSchedule() {
-    if (!confirm('确定要执行自动排课吗？这将根据学生和导师的可用时间自动创建课程安排。')) {
-      return;
-    }
-
-    setScheduling(true);
-    try {
-      const response = await fetch('/api/schedule/auto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority_rule: 'remaining_hours' }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(`排课完成！\n成功：${result.scheduled_count} 节\n失败：${result.failed_count} 节`);
-        fetchStatistics();
-      } else {
-        alert('排课失败，请稍后重试');
-      }
-    } catch (error) {
-      console.error('自动排课失败:', error);
-      alert('排课失败，请稍后重试');
-    } finally {
-      setScheduling(false);
-    }
-  }
-
   const statCards = [
     {
       name: '学生总数',
       value: stats.total_students,
       icon: Users,
-      color: 'bg-blue-500',
-      textColor: 'text-blue-600',
+      gradient: 'from-orange-500 to-amber-500',
+      link: '/students',
+      description: '在校学生数量',
     },
     {
       name: '导师总数',
       value: stats.total_teachers,
       icon: GraduationCap,
-      color: 'bg-purple-500',
-      textColor: 'text-purple-600',
+      gradient: 'from-amber-500 to-yellow-500',
+      link: '/teachers',
+      description: '在职导师数量',
     },
     {
       name: '课程总数',
       value: stats.total_courses,
       icon: BookOpen,
-      color: 'bg-green-500',
-      textColor: 'text-green-600',
+      gradient: 'from-orange-400 to-orange-600',
+      link: '/courses',
+      description: '课程库总数',
     },
     {
-      name: '已排课程',
-      value: stats.scheduled_courses,
-      icon: Calendar,
-      color: 'bg-orange-500',
-      textColor: 'text-orange-600',
+      name: '本周课时',
+      value: stats.this_week_hours,
+      icon: Clock,
+      gradient: 'from-yellow-400 to-orange-500',
+      link: '/schedules',
+      description: '本周已排课时',
+    },
+  ];
+
+  const quickActions = [
+    {
+      title: '学生管理',
+      description: '添加或管理学生信息',
+      icon: Users,
+      link: '/students',
+      color: 'text-orange-600',
+    },
+    {
+      title: '课程管理',
+      description: '管理课程库和课程信息',
+      icon: BookOpen,
+      link: '/courses',
+      color: 'text-amber-600',
+    },
+    {
+      title: '自动排课',
+      description: '智能排课系统',
+      icon: Sparkles,
+      link: '/schedules',
+      color: 'text-yellow-600',
+    },
+    {
+      title: '时间设置',
+      description: '设置可用时间段',
+      icon: Clock,
+      link: '/availability',
+      color: 'text-orange-500',
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            仪表盘
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            ARTDiCO 自动排课系统概览
-          </p>
+    <div className="space-y-8">
+      {/* 欢迎横幅 */}
+      <div className="gradient-orange rounded-2xl p-8 text-white shadow-orange-lg">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">
+              欢迎使用 ARTiCO 教务管理系统
+            </h1>
+            <p className="text-white/90 text-lg mb-6">
+              智能化的教务管理解决方案，让排课更简单高效
+            </p>
+            <div className="flex gap-3">
+              <Link href="/students">
+                <Button size="lg" className="bg-white text-orange-600 hover:bg-white/90 shadow-lg">
+                  <Users className="mr-2 h-5 w-5" />
+                  开始管理
+                </Button>
+              </Link>
+              <Link href="/schedules">
+                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/20">
+                  <Calendar className="mr-2 h-5 w-5" />
+                  查看排课
+                </Button>
+              </Link>
+            </div>
+          </div>
+          <div className="hidden lg:block">
+            <div className="w-64 h-48 bg-white/10 rounded-xl backdrop-blur-sm flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-6xl font-bold mb-2">{stats.this_week_hours}</div>
+                <div className="text-white/80">本周课时</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <Button
-          onClick={handleAutoSchedule}
-          disabled={scheduling}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          {scheduling ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              排课中...
-            </>
-          ) : (
-            <>
-              <TrendingUp className="w-4 h-4 mr-2" />
-              一键排课
-            </>
-          )}
-        </Button>
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.name}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {stat.name}
-                  </p>
-                  <p className={cn("text-2xl font-bold mt-1", stat.textColor)}>
-                    {loading ? '-' : stat.value}
-                  </p>
-                </div>
-                <div className={cn("p-3 rounded-full", stat.color)}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Link key={stat.name} href={stat.link}>
+              <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-md overflow-hidden">
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity`} />
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-md`}>
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-orange-500 transition-colors" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-gray-900">
+                      {loading ? (
+                        <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">{stat.name}</div>
+                    <div className="text-xs text-gray-400">{stat.description}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       {/* 快捷操作 */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* 待处理事项 */}
-        <Card>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">快捷操作</h2>
+            <p className="text-gray-500 mt-1">常用功能快速入口</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link key={action.title} href={action.link}>
+                <Card className="group hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-orange-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`p-2.5 rounded-lg bg-orange-50 group-hover:bg-orange-100 transition-colors`}>
+                        <Icon className={`h-5 w-5 ${action.color}`} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 mb-1 group-hover:text-orange-600 transition-colors">
+                          {action.title}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {action.description}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 系统状态 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-0 shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-              待处理事项
+              <TrendingUp className="h-5 w-5 text-orange-500" />
+              系统概览
             </CardTitle>
-            <CardDescription>
-              需要您关注和处理的事项
-            </CardDescription>
+            <CardDescription>当前系统运行状态</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50">
                 <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-orange-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    待确认课程安排
-                  </span>
+                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-sm font-medium text-gray-700">系统状态</span>
                 </div>
-                <Badge variant="secondary">{stats.pending_schedules}</Badge>
+                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                  运行正常
+                </Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50">
                 <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-blue-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    本周课时安排
-                  </span>
+                  <Calendar className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-700">待确认排课</span>
                 </div>
-                <Badge variant="secondary">{stats.this_week_hours} 小时</Badge>
+                <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
+                  {stats.pending_schedules} 节
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-700">已排课程</span>
+                </div>
+                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                  {stats.scheduled_courses} 门
+                </Badge>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 系统状态 */}
-        <Card>
+        <Card className="border-0 shadow-md">
           <CardHeader>
-            <CardTitle>系统状态</CardTitle>
-            <CardDescription>
-              当前系统运行状态
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-orange-500" />
+              系统特性
+            </CardTitle>
+            <CardDescription>ARTiCO 教务管理系统的核心功能</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  飞书集成
-                </span>
-                <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                  未连接
-                </Badge>
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="p-1 rounded bg-orange-100">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 text-sm">智能排课</div>
+                  <div className="text-xs text-gray-500">基于学生和导师时间自动匹配排课</div>
+                </div>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  数据库连接
-                </span>
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  正常
-                </Badge>
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="p-1 rounded bg-orange-100">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 text-sm">选课单管理</div>
+                  <div className="text-xs text-gray-500">完整的选课单创建和进度追踪</div>
+                </div>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  排课引擎
-                </span>
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  就绪
-                </Badge>
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="p-1 rounded bg-orange-100">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 text-sm">多渠道通知</div>
+                  <div className="text-xs text-gray-500">飞书、微信、邮件多渠道消息推送</div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* 快速入口 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>快速入口</CardTitle>
-          <CardDescription>
-            常用功能快速访问
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Button variant="outline" className="h-20 flex-col gap-2" asChild>
-              <a href="/students">
-                <Users className="w-6 h-6" />
-                <span className="text-xs">添加学生</span>
-              </a>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2" asChild>
-              <a href="/teachers">
-                <GraduationCap className="w-6 h-6" />
-                <span className="text-xs">添加导师</span>
-              </a>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2" asChild>
-              <a href="/courses">
-                <BookOpen className="w-6 h-6" />
-                <span className="text-xs">添加课程</span>
-              </a>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2" asChild>
-              <a href="/schedules">
-                <Calendar className="w-6 h-6" />
-                <span className="text-xs">查看排课</span>
-              </a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
-}
-
-// 辅助函数
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
 }

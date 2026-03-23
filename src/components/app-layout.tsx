@@ -50,12 +50,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">A</span>
+              <div className="w-9 h-9 gradient-orange rounded-xl flex items-center justify-center shadow-orange">
+                <span className="text-white font-bold text-base">A</span>
               </div>
-              <span className="font-bold text-lg text-gray-900 dark:text-white">
-                ARTDiCO
-              </span>
+              <div className="flex flex-col">
+                <span className="font-bold text-base text-gray-900 dark:text-white leading-tight">
+                  ARTiCO
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
+                  教务管理系统
+                </span>
+              </div>
             </Link>
             <Button
               variant="ghost"
@@ -93,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* 底部信息 */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              © 2025 ARTDiCO 排课系统
+              © 2025 ARTiCO 教务管理系统
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               v1.0.0
@@ -118,15 +123,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             
             <div className="flex-1 lg:flex-none">
               <h1 className="text-lg font-semibold text-gray-900 dark:text-white lg:hidden">
-                ARTDiCO 排课系统
+                ARTiCO 教务管理系统
               </h1>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* 飞书集成状态指示器 */}
+              {/* 系统状态指示器 */}
               <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                <span>飞书未连接</span>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span>系统运行正常</span>
               </div>
             </div>
           </div>
