@@ -10,7 +10,8 @@ import {
   MoreVertical,
   User,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -310,7 +311,10 @@ export default function TeachersPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>可授课程</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>可授课程</Label>
+                    <span className="text-xs text-muted-foreground">（点击下方课程进行勾选）</span>
+                  </div>
                   <Link href="/courses" target="_blank">
                     <Button
                       type="button"
@@ -319,7 +323,7 @@ export default function TeachersPage() {
                       className="h-7 text-xs text-muted-foreground hover:text-orange-600"
                     >
                       <Settings className="h-3 w-3 mr-1" />
-                      管理课程库
+                      添加新课程
                       <ExternalLink className="h-3 w-3 ml-1" />
                     </Button>
                   </Link>
@@ -356,11 +360,14 @@ export default function TeachersPage() {
                               onClick={() => toggleCourse(course)}
                               className={`justify-start text-left h-auto py-2 px-3 ${
                                 formData.teachableCourses.includes(course) 
-                                  ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                                  : 'border-orange-200 hover:bg-orange-50'
+                                  ? 'bg-orange-500 hover:bg-orange-600 text-white border-orange-500' 
+                                  : 'border-orange-200 hover:bg-orange-50 hover:border-orange-300'
                               }`}
                             >
-                              <span className="text-xs">{courseNameMap[course]}</span>
+                              {formData.teachableCourses.includes(course) && (
+                                <Check className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                              )}
+                              <span className="text-xs truncate">{courseNameMap[course]}</span>
                             </Button>
                           ))}
                         </div>
@@ -386,11 +393,14 @@ export default function TeachersPage() {
                               onClick={() => toggleCourse(course)}
                               className={`justify-start text-left h-auto py-2 px-3 ${
                                 formData.teachableCourses.includes(course) 
-                                  ? 'bg-amber-500 hover:bg-amber-600 text-white' 
-                                  : 'border-amber-200 hover:bg-amber-50'
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' 
+                                  : 'border-amber-200 hover:bg-amber-50 hover:border-amber-300'
                               }`}
                             >
-                              <span className="text-xs">{courseNameMap[course]}</span>
+                              {formData.teachableCourses.includes(course) && (
+                                <Check className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                              )}
+                              <span className="text-xs truncate">{courseNameMap[course]}</span>
                             </Button>
                           ))}
                         </div>
