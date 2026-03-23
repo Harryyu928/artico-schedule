@@ -67,7 +67,6 @@ export default function StudentsPage() {
 
   // 表单状态
   const [formData, setFormData] = useState({
-    studentId: '',
     name: '',
     major: '游戏设计',
     applicationCountry: '美国',
@@ -117,7 +116,9 @@ export default function StudentsPage() {
 
       toast({
         title: '成功',
-        description: editingStudent ? '学生信息已更新' : '学生已创建',
+        description: editingStudent 
+          ? '学生信息已更新' 
+          : `学生创建成功，编号已自动生成`,
       });
 
       setDialogOpen(false);
@@ -165,7 +166,6 @@ export default function StudentsPage() {
   const handleEdit = (student: Student) => {
     setEditingStudent(student);
     setFormData({
-      studentId: student.studentId,
       name: student.name,
       major: student.major,
       applicationCountry: student.applicationCountry,
@@ -178,7 +178,6 @@ export default function StudentsPage() {
   // 重置表单
   const resetForm = () => {
     setFormData({
-      studentId: '',
       name: '',
       major: '游戏设计',
       applicationCountry: '美国',
@@ -223,27 +222,38 @@ export default function StudentsPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* 编辑时显示学生编号（只读） */}
+              {editingStudent && (
                 <div className="space-y-2">
                   <Label htmlFor="studentId">学生编号</Label>
                   <Input
                     id="studentId"
-                    value={formData.studentId}
-                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    placeholder="例如: STU001"
-                    required
+                    value={editingStudent.studentId}
+                    disabled
+                    className="bg-gray-50 text-gray-600"
                   />
+                  <p className="text-xs text-gray-500">学生编号不可修改</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">姓名</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="请输入姓名"
-                    required
-                  />
+              )}
+              
+              {/* 添加时显示提示 */}
+              {!editingStudent && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-orange-800">
+                    💡 学生编号将自动生成（按年份编号，如 202601）
+                  </p>
                 </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="name">姓名 *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="请输入姓名"
+                  required
+                />
               </div>
 
               <div className="space-y-2">
