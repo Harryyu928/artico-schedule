@@ -34,9 +34,52 @@ import { v4 as uuidv4 } from 'uuid';
 
 // ==================== 学生相关操作 ====================
 
+/**
+ * 生成学生编号（按年自动编号）
+ * 格式：年份+序号，如 202601、202602
+ * 每年从01开始
+ */
+async function generateStudentId(): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const yearPrefix = currentYear.toString();
+  
+  try {
+    // 查询当前年份的学生数量
+    const yearStudents = await db
+      .select()
+      .from(students)
+      .where(sql`student_id LIKE ${yearPrefix}%`);
+    
+    // 计算下一个序号
+    let nextNumber = 1;
+    
+    if (yearStudents.length > 0) {
+      // 提取所有序号，找出最大值
+      const numbers = yearStudents
+        .map(s => {
+          const match = s.studentId.match(new RegExp(`^${yearPrefix}(\\d+)$`));
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => n > 0);
+      
+      if (numbers.length > 0) {
+        nextNumber = Math.max(...numbers) + 1;
+      }
+    }
+    
+    // 格式化为两位数序号
+    const sequence = nextNumber.toString().padStart(2, '0');
+    return `${yearPrefix}${sequence}`;
+  } catch (error) {
+    console.error('生成学生编号失败:', error);
+    // 降级方案：使用时间戳
+    return `${yearPrefix}${Date.now().toString().slice(-2)}`;
+  }
+}
+
 export async function createStudent(data: CreateStudentRequest) {
   const id = uuidv4();
-  const studentId = `STD${Date.now()}`;
+  const studentId = await generateStudentId();
   
   try {
     const [student] = await db.insert(students).values({
