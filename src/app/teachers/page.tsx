@@ -87,7 +87,11 @@ export default function TeachersPage() {
     'P-3DGA': 'P-3DGA 3D游戏艺术',
   };
 
-  const courseOptions = Object.keys(courseNameMap);
+  // 按类型分类课程
+  const foundationCourses = ['F-GD', 'F-TA', 'F-GA', 'F-3D', 'F-AN']; // 基础课
+  const projectCourses = ['P-GD', 'P-AN', 'P-GA', 'P-CA', 'P-3DGA']; // 项目课
+
+  const courseOptions = [...foundationCourses, ...projectCourses];
 
   // 获取导师列表
   useEffect(() => {
@@ -284,21 +288,63 @@ export default function TeachersPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>可授课程</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {courseOptions.map(course => (
-                    <Button
-                      key={course}
-                      type="button"
-                      variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => toggleCourse(course)}
-                      className="justify-start text-left h-auto py-2 px-3"
-                    >
-                      <span className="text-xs">{courseNameMap[course]}</span>
-                    </Button>
-                  ))}
+                
+                {/* 基础课 */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                      基础课
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">Foundation</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {foundationCourses.map(course => (
+                      <Button
+                        key={course}
+                        type="button"
+                        variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleCourse(course)}
+                        className={`justify-start text-left h-auto py-2 px-3 ${
+                          formData.teachableCourses.includes(course) 
+                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                            : 'border-orange-200 hover:bg-orange-50'
+                        }`}
+                      >
+                        <span className="text-xs">{courseNameMap[course]}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 项目课 */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                      项目课
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">Project</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {projectCourses.map(course => (
+                      <Button
+                        key={course}
+                        type="button"
+                        variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleCourse(course)}
+                        className={`justify-start text-left h-auto py-2 px-3 ${
+                          formData.teachableCourses.includes(course) 
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                            : 'border-amber-200 hover:bg-amber-50'
+                        }`}
+                      >
+                        <span className="text-xs">{courseNameMap[course]}</span>
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -412,16 +458,52 @@ export default function TeachersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-xs">
-                        {teacher.teachableCourses.slice(0, 3).map(course => (
-                          <Badge key={course} variant="outline" className="text-xs whitespace-nowrap">
-                            {courseNameMap[course] || course}
-                          </Badge>
-                        ))}
-                        {teacher.teachableCourses.length > 3 && (
-                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
-                            +{teacher.teachableCourses.length - 3}更多
-                          </Badge>
+                      <div className="space-y-1.5 max-w-xs">
+                        {/* 基础课 */}
+                        {teacher.teachableCourses.filter(c => foundationCourses.includes(c)).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[10px] text-orange-600 font-medium mr-1">基础:</span>
+                            {teacher.teachableCourses
+                              .filter(c => foundationCourses.includes(c))
+                              .slice(0, 2)
+                              .map(course => (
+                                <Badge 
+                                  key={course} 
+                                  variant="outline" 
+                                  className="text-[10px] whitespace-nowrap bg-orange-50 text-orange-700 border-orange-200"
+                                >
+                                  {course}
+                                </Badge>
+                              ))}
+                            {teacher.teachableCourses.filter(c => foundationCourses.includes(c)).length > 2 && (
+                              <Badge variant="outline" className="text-[10px] bg-orange-100 text-orange-600 border-orange-200">
+                                +{teacher.teachableCourses.filter(c => foundationCourses.includes(c)).length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {/* 项目课 */}
+                        {teacher.teachableCourses.filter(c => projectCourses.includes(c)).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[10px] text-amber-600 font-medium mr-1">项目:</span>
+                            {teacher.teachableCourses
+                              .filter(c => projectCourses.includes(c))
+                              .slice(0, 2)
+                              .map(course => (
+                                <Badge 
+                                  key={course} 
+                                  variant="outline" 
+                                  className="text-[10px] whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200"
+                                >
+                                  {course}
+                                </Badge>
+                              ))}
+                            {teacher.teachableCourses.filter(c => projectCourses.includes(c)).length > 2 && (
+                              <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-600 border-amber-200">
+                                +{teacher.teachableCourses.filter(c => projectCourses.includes(c)).length - 2}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
