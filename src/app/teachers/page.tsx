@@ -73,10 +73,21 @@ export default function TeachersPage() {
     teacherType: 'full_time',
   });
 
-  const courseOptions = [
-    'F-GD', 'F-TA', 'F-GA', 'F-3D', 'F-AN',
-    'P-GD', 'P-AN', 'P-GA', 'P-CA', 'P-3DGA'
-  ];
+  // 课程代号到完整名称的映射
+  const courseNameMap: Record<string, string> = {
+    'F-GD': 'F-GD 游戏设计基础',
+    'F-TA': 'F-TA 技术艺术基础',
+    'F-GA': 'F-GA 游戏策划基础',
+    'F-3D': 'F-3D 3D建模基础',
+    'F-AN': 'F-AN 游戏动画基础',
+    'P-GD': 'P-GD 游戏设计进阶',
+    'P-AN': 'P-AN 游戏动画进阶',
+    'P-GA': 'P-GA 游戏策划进阶',
+    'P-CA': 'P-CA 角色设计',
+    'P-3DGA': 'P-3DGA 3D游戏艺术',
+  };
+
+  const courseOptions = Object.keys(courseNameMap);
 
   // 获取导师列表
   useEffect(() => {
@@ -275,7 +286,7 @@ export default function TeachersPage() {
 
               <div className="space-y-2">
                 <Label>可授课程</Label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {courseOptions.map(course => (
                     <Button
                       key={course}
@@ -283,8 +294,9 @@ export default function TeachersPage() {
                       variant={formData.teachableCourses.includes(course) ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => toggleCourse(course)}
+                      className="justify-start text-left h-auto py-2 px-3"
                     >
-                      {course}
+                      <span className="text-xs">{courseNameMap[course]}</span>
                     </Button>
                   ))}
                 </div>
@@ -400,15 +412,15 @@ export default function TeachersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 max-w-xs">
                         {teacher.teachableCourses.slice(0, 3).map(course => (
-                          <Badge key={course} variant="outline" className="text-xs">
-                            {course}
+                          <Badge key={course} variant="outline" className="text-xs whitespace-nowrap">
+                            {courseNameMap[course] || course}
                           </Badge>
                         ))}
                         {teacher.teachableCourses.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{teacher.teachableCourses.length - 3}
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
+                            +{teacher.teachableCourses.length - 3}更多
                           </Badge>
                         )}
                       </div>
