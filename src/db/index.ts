@@ -1,10 +1,14 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
+import { loadEnv } from '@/storage/database/supabase-client';
+
+// 加载环境变量
+loadEnv();
 
 // 数据库连接配置
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '',
+  connectionString: process.env.PGDATABASE_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   // 添加连接超时和错误处理
   connectionTimeoutMillis: 5000,

@@ -119,8 +119,8 @@ export async function getStudents(options?: {
   offset?: number;
 }) {
   try {
-    let query = db.select().from(students);
-    return query;
+    const result = await db.select().from(students);
+    return result;
   } catch (error) {
     console.error('获取学生列表失败:', error);
     return [];

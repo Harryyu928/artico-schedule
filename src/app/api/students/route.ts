@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const students = await getStudents({ major, stage, limit, offset });
     
-    return NextResponse.json(students);
+    return NextResponse.json({ students });
   } catch (error) {
     console.error('获取学生列表失败:', error);
     return NextResponse.json(
