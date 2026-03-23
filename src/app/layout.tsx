@@ -1,74 +1,146 @@
-import type { Metadata } from 'next';
-import { Inspector } from 'react-dev-inspector';
-import './globals.css';
+'use client';
 
-export const metadata: Metadata = {
-  title: {
-    default: '新应用 | 扣子编程',
-    template: '%s | 扣子编程',
-  },
-  description:
-    '扣子编程是一款一站式云端 Vibe Coding 开发平台。通过对话轻松构建智能体、工作流和网站，实现从创意到上线的无缝衔接。',
-  keywords: [
-    '扣子编程',
-    'Coze Code',
-    'Vibe Coding',
-    'AI 编程',
-    '智能体搭建',
-    '工作流搭建',
-    '网站搭建',
-    '网站部署',
-    '全栈开发',
-    'AI 工程师',
-  ],
-  authors: [{ name: 'Coze Code Team', url: 'https://code.coze.cn' }],
-  generator: 'Coze Code',
-  // icons: {
-  //   icon: '',
-  // },
-  openGraph: {
-    title: '扣子编程 | 你的 AI 工程师已就位',
-    description:
-      '我正在使用扣子编程 Vibe Coding，让创意瞬间上线。告别拖拽，拥抱心流。',
-    url: 'https://code.coze.cn',
-    siteName: '扣子编程',
-    locale: 'zh_CN',
-    type: 'website',
-    // images: [
-    //   {
-    //     url: '',
-    //     width: 1200,
-    //     height: 630,
-    //     alt: '扣子编程 - 你的 AI 工程师',
-    //   },
-    // ],
-  },
-  // twitter: {
-  //   card: 'summary_large_image',
-  //   title: 'Coze Code | Your AI Engineer is Here',
-  //   description:
-  //     'Build and deploy full-stack applications through AI conversation. No env setup, just flow.',
-  //   // images: [''],
-  // },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { 
+  LayoutDashboard, 
+  Users, 
+  GraduationCap, 
+  BookOpen, 
+  Calendar,
+  Clock,
+  Settings,
+  Menu,
+  X
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const navigation = [
+  { name: '仪表盘', href: '/', icon: LayoutDashboard },
+  { name: '学生管理', href: '/students', icon: Users },
+  { name: '导师管理', href: '/teachers', icon: GraduationCap },
+  { name: '课程管理', href: '/courses', icon: BookOpen },
+  { name: '排课管理', href: '/schedules', icon: Calendar },
+  { name: '时间设置', href: '/availability', icon: Clock },
+  { name: '系统设置', href: '/settings', icon: Settings },
+];
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  const isDev = process.env.COZE_PROJECT_ENV === 'DEV';
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
-    <html lang="en">
-      <body className={`antialiased`}>
-        {isDev && <Inspector />}
-        {children}
-      </body>
-    </html>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* 移动端侧边栏遮罩 */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* 侧边栏 */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">A</span>
+              </div>
+              <span className="font-bold text-lg text-gray-900 dark:text-white">
+                ARTDiCO
+              </span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* 导航菜单 */}
+          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  )}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* 底部信息 */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              © 2025 ARTDiCO 排课系统
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              v1.0.0
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      {/* 主内容区域 */}
+      <div className="lg:pl-64">
+        {/* 顶部栏 */}
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            
+            <div className="flex-1 lg:flex-none">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white lg:hidden">
+                ARTDiCO 排课系统
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* 飞书集成状态指示器 */}
+              <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full" />
+                <span>飞书未连接</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 页面内容 */}
+        <main className="p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }
