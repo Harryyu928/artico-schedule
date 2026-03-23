@@ -7,6 +7,7 @@ import {
   boolean,
   date,
   pgEnum,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import {
   MajorDirection,
@@ -20,6 +21,10 @@ import {
   WeekDay,
   TimeSlot,
   ScheduleStatus,
+  SelectionFormStatus,
+  SelectionItemStatus,
+  ClassRecordStatus,
+  ProjectPhase,
 } from '@/types';
 
 // 枚举定义
@@ -107,6 +112,53 @@ export const scheduleStatusEnum = pgEnum('schedule_status', [
   '取消',
 ] as const);
 
+// 新增枚举定义
+export const selectionFormStatusEnum = pgEnum('selection_form_status', [
+  '草稿',
+  '已确认',
+  '执行中',
+  '已完成',
+  '已取消',
+] as const);
+
+export const selectionItemStatusEnum = pgEnum('selection_item_status', [
+  '待排课',
+  '排课中',
+  '上课中',
+  '已完成',
+  '已暂停',
+] as const);
+
+export const classRecordStatusEnum = pgEnum('class_record_status', [
+  '已排课',
+  '已完成',
+  '已取消',
+  '学生缺席',
+  '补课',
+] as const);
+
+export const projectPhaseEnum = pgEnum('project_phase', [
+  'Concept',
+  'Modeling',
+  'Texturing',
+  'Lighting',
+  'Render',
+  'Portfolio',
+] as const);
+
+export const degreeEnum = pgEnum('degree', [
+  '本科',
+  '硕士',
+  '博士',
+] as const);
+
+export const applicationStatusEnum = pgEnum('application_status', [
+  '准备中',
+  '已申请',
+  '已录取',
+  '已拒绝',
+] as const);
+
 // 学生表
 export const students = pgTable('students', {
   id: varchar('id', { length: 36 }).primaryKey(),
@@ -190,6 +242,136 @@ export const scheduleResults = pgTable('schedule_results', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ========== 新增表 ==========
+
+// 申请院校表
+export const applicationSchools = pgTable('application_schools', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  studentId: varchar('student_id', { length: 36 }).notNull().references(() => students.id, { onDelete: 'cascade' }),
+  schoolName: varchar('school_name', { length: 200 }).notNull(),
+  country: applicationCountryEnum('country').notNull(),
+  major: varchar('major', { length: 200 }).notNull(),
+  degree: degreeEnum('degree').notNull(),
+  priority: integer('priority').notNull().default(1),
+  deadline: date('deadline'),
+  status: applicationStatusEnum('status').notNull().default('准备中'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 选课单主表
+export const courseSelectionForms = pgTable('course_selection_forms', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  formId: varchar('form_id', { length: 50 }).notNull().unique(),
+  studentId: varchar('student_id', { length: 36 }).notNull().references(() => students.id, { onDelete: 'cascade' }),
+  consultationTeacherId: varchar('consultation_teacher_id', { length: 36 }).references(() => teachers.id, { onDelete: 'set null' }),
+  status: selectionFormStatusEnum('status').notNull().default('草稿'),
+  
+  // 规划信息
+  totalPlannedHours: integer('total_planned_hours').notNull().default(0),
+  estimatedStartDate: date('estimated_start_date').notNull(),
+  estimatedEndDate: date('estimated_end_date').notNull(),
+  actualStartDate: date('actual_start_date'),
+  actualEndDate: date('actual_end_date'),
+  
+  // 进度统计
+  totalCourses: integer('total_courses').notNull().default(0),
+  completedCourses: integer('completed_courses').notNull().default(0),
+  totalHours: integer('total_hours').notNull().default(0),
+  completedHours: integer('completed_hours').notNull().default(0),
+  
+  // 备注
+  notes: text('notes'),
+  goals: text('goals'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 选课单明细表
+export const courseSelectionItems = pgTable('course_selection_items', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  formId: varchar('form_id', { length: 36 }).notNull().references(() => courseSelectionForms.id, { onDelete: 'cascade' }),
+  courseId: varchar('course_id', { length: 36 }).notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  
+  // 课程信息
+  courseType: courseTypeEnum('course_type').notNull(),
+  courseStage: courseStageEnum('course_stage').notNull(),
+  
+  // 课时规划
+  plannedHours: integer('planned_hours').notNull().default(0),
+  scheduledHours: integer('scheduled_hours').notNull().default(0),
+  completedHours: integer('completed_hours').notNull().default(0),
+  
+  // 进度管理
+  status: selectionItemStatusEnum('status').notNull().default('待排课'),
+  priority: integer('priority').notNull().default(5),
+  
+  // 时间规划
+  plannedStartDate: date('planned_start_date'),
+  plannedEndDate: date('planned_end_date'),
+  actualStartDate: date('actual_start_date'),
+  actualEndDate: date('actual_end_date'),
+  
+  // 项目课特有字段
+  currentPhase: projectPhaseEnum('current_phase'),
+  phaseProgress: jsonb('phase_progress').$type<Record<string, number>>(),
+  
+  // 备注
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 上课记录表
+export const classRecords = pgTable('class_records', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  recordId: varchar('record_id', { length: 50 }).notNull().unique(),
+  scheduleId: varchar('schedule_id', { length: 50 }),
+  
+  // 基本信息
+  studentId: varchar('student_id', { length: 36 }).notNull().references(() => students.id, { onDelete: 'cascade' }),
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id, { onDelete: 'cascade' }),
+  courseId: varchar('course_id', { length: 36 }).notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  selectionItemId: varchar('selection_item_id', { length: 36 }).references(() => courseSelectionItems.id, { onDelete: 'set null' }),
+  
+  // 上课信息
+  classDate: date('class_date').notNull(),
+  weekDay: weekDayEnum('week_day').notNull(),
+  startTime: timeSlotEnum('start_time').notNull(),
+  endTime: timeSlotEnum('end_time'),
+  actualDuration: integer('actual_duration').notNull().default(120), // 默认120分钟
+  
+  // 课程内容
+  contentSummary: text('content_summary').notNull(),
+  teachingMethod: varchar('teaching_method', { length: 100 }),
+  
+  // 学生表现
+  studentPerformance: text('student_performance'),
+  attendanceStatus: classRecordStatusEnum('attendance_status').notNull().default('已排课'),
+  
+  // 作业与反馈
+  homeworkAssigned: text('homework_assigned'),
+  homeworkDeadline: date('homework_deadline'),
+  nextClassPlan: text('next_class_plan'),
+  teacherFeedback: text('teacher_feedback'),
+  studentFeedback: text('student_feedback'),
+  
+  // 项目课特有
+  projectPhase: projectPhaseEnum('project_phase'),
+  phaseContent: text('phase_content'),
+  
+  // 附件
+  attachments: jsonb('attachments').$type<string[]>(),
+  
+  // 记录创建者
+  createdBy: varchar('created_by', { length: 36 }).notNull(),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // 类型导出
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
@@ -203,3 +385,13 @@ export type TimeAvailability = typeof timeAvailabilities.$inferSelect;
 export type NewTimeAvailability = typeof timeAvailabilities.$inferInsert;
 export type ScheduleResult = typeof scheduleResults.$inferSelect;
 export type NewScheduleResult = typeof scheduleResults.$inferInsert;
+
+// 新增类型导出
+export type ApplicationSchool = typeof applicationSchools.$inferSelect;
+export type NewApplicationSchool = typeof applicationSchools.$inferInsert;
+export type CourseSelectionForm = typeof courseSelectionForms.$inferSelect;
+export type NewCourseSelectionForm = typeof courseSelectionForms.$inferInsert;
+export type CourseSelectionItem = typeof courseSelectionItems.$inferSelect;
+export type NewCourseSelectionItem = typeof courseSelectionItems.$inferInsert;
+export type ClassRecord = typeof classRecords.$inferSelect;
+export type NewClassRecord = typeof classRecords.$inferInsert;

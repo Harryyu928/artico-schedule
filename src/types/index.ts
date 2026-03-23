@@ -305,3 +305,274 @@ export interface FeishuMessage {
   msg_type: 'text' | 'post' | 'interactive';
   content: string | Record<string, unknown>;
 }
+
+// ========== 新增：选课单和上课记录相关类型 ==========
+
+// 选课单状态
+export enum SelectionFormStatus {
+  DRAFT = '草稿',
+  CONFIRMED = '已确认',
+  IN_PROGRESS = '执行中',
+  COMPLETED = '已完成',
+  CANCELLED = '已取消',
+}
+
+// 选课单明细状态
+export enum SelectionItemStatus {
+  PENDING = '待排课',
+  SCHEDULING = '排课中',
+  IN_PROGRESS = '上课中',
+  COMPLETED = '已完成',
+  SUSPENDED = '已暂停',
+}
+
+// 上课记录状态
+export enum ClassRecordStatus {
+  SCHEDULED = '已排课',
+  COMPLETED = '已完成',
+  CANCELLED = '已取消',
+  ABSENT = '学生缺席',
+  MAKEUP = '补课',
+}
+
+// 项目阶段（用于项目课）
+export enum ProjectPhase {
+  CONCEPT = 'Concept',
+  MODELING = 'Modeling',
+  TEXTURING = 'Texturing',
+  LIGHTING = 'Lighting',
+  RENDER = 'Render',
+  PORTFOLIO = 'Portfolio',
+}
+
+// 申请院校表
+export interface ApplicationSchool {
+  id: string;
+  student_id: string;
+  school_name: string;
+  country: ApplicationCountry;
+  major: string;
+  degree: '本科' | '硕士' | '博士';
+  priority: number; // 优先级，1为最高
+  deadline?: Date;
+  status: '准备中' | '已申请' | '已录取' | '已拒绝';
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 选课单主表
+export interface CourseSelectionForm {
+  id: string;
+  form_id: string; // 选课单编号
+  student_id: string;
+  consultation_teacher_id?: string; // 选课指导导师ID
+  status: SelectionFormStatus;
+  
+  // 规划信息
+  total_planned_hours: number; // 总计划课时
+  estimated_start_date: Date; // 预计开始日期
+  estimated_end_date: Date; // 预计完成日期
+  actual_start_date?: Date; // 实际开始日期
+  actual_end_date?: Date; // 实际完成日期
+  
+  // 进度统计
+  total_courses: number; // 总课程数
+  completed_courses: number; // 已完成课程数
+  total_hours: number; // 总课时
+  completed_hours: number; // 已完成课时
+  
+  // 备注
+  notes?: string;
+  goals?: string; // 学习目标
+  
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 选课单明细表
+export interface CourseSelectionItem {
+  id: string;
+  form_id: string; // 选课单ID
+  course_id: string;
+  
+  // 课程信息
+  course_type: CourseType; // 基础课/项目课
+  course_stage: CourseStage; // 基础/项目/作品集
+  
+  // 课时规划
+  planned_hours: number; // 计划课时
+  scheduled_hours: number; // 已排课时
+  completed_hours: number; // 已完成课时
+  
+  // 进度管理
+  status: SelectionItemStatus;
+  priority: number; // 优先级，1为最高
+  
+  // 时间规划
+  planned_start_date?: Date;
+  planned_end_date?: Date;
+  actual_start_date?: Date;
+  actual_end_date?: Date;
+  
+  // 项目课特有字段
+  current_phase?: ProjectPhase; // 当前阶段（项目课用）
+  phase_progress?: Record<ProjectPhase, number>; // 各阶段进度（百分比）
+  
+  // 备注
+  notes?: string;
+  
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 上课记录表
+export interface ClassRecord {
+  id: string;
+  record_id: string; // 记录编号
+  schedule_id?: string; // 关联排课ID（可选）
+  
+  // 基本信息
+  student_id: string;
+  teacher_id: string;
+  course_id: string;
+  selection_item_id?: string; // 关联选课单明细
+  
+  // 上课信息
+  class_date: Date; // 上课日期
+  week_day: WeekDay;
+  start_time: TimeSlot;
+  end_time?: TimeSlot; // 结束时间
+  actual_duration: number; // 实际上课时长（分钟）
+  
+  // 课程内容
+  content_summary: string; // 课程内容概述
+  teaching_method?: string; // 教学方式
+  
+  // 学生表现
+  student_performance?: string; // 学生表现评价
+  attendance_status: ClassRecordStatus; // 出勤状态
+  
+  // 作业与反馈
+  homework_assigned?: string; // 布置的作业
+  homework_deadline?: Date; // 作业截止日期
+  next_class_plan?: string; // 下节课计划
+  teacher_feedback?: string; // 导师反馈
+  student_feedback?: string; // 学生反馈
+  
+  // 项目课特有
+  project_phase?: ProjectPhase; // 当前项目阶段
+  phase_content?: string; // 阶段内容
+  
+  // 附件
+  attachments?: string[]; // 附件URL列表
+  
+  created_by: string; // 记录创建者ID
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 关联类型（用于前端展示）
+export interface ClassRecordWithDetails extends ClassRecord {
+  student: Student;
+  teacher: Teacher;
+  course: Course;
+  selectionItem?: CourseSelectionItem;
+}
+
+export interface CourseSelectionFormWithDetails extends CourseSelectionForm {
+  student: Student;
+  consultationTeacher?: Teacher;
+  items: CourseSelectionItemWithDetails[];
+  applicationSchools: ApplicationSchool[];
+}
+
+export interface CourseSelectionItemWithDetails extends CourseSelectionItem {
+  course: Course;
+  form: CourseSelectionForm;
+}
+
+// ========== API请求类型 ==========
+
+// 创建申请院校请求
+export interface CreateApplicationSchoolRequest {
+  student_id: string;
+  school_name: string;
+  country: ApplicationCountry;
+  major: string;
+  degree: '本科' | '硕士' | '博士';
+  priority?: number;
+  deadline?: Date;
+}
+
+// 创建选课单请求
+export interface CreateSelectionFormRequest {
+  student_id: string;
+  consultation_teacher_id?: string;
+  estimated_start_date: Date;
+  estimated_end_date: Date;
+  notes?: string;
+  goals?: string;
+}
+
+// 添加选课单明细请求
+export interface AddSelectionItemRequest {
+  form_id: string;
+  course_id: string;
+  course_type: CourseType;
+  course_stage: CourseStage;
+  planned_hours: number;
+  priority?: number;
+  planned_start_date?: Date;
+  planned_end_date?: Date;
+  notes?: string;
+}
+
+// 创建上课记录请求
+export interface CreateClassRecordRequest {
+  schedule_id?: string;
+  student_id: string;
+  teacher_id: string;
+  course_id: string;
+  selection_item_id?: string;
+  class_date: Date | string;
+  week_day?: WeekDay; // 可选，如果不提供会从class_date计算
+  start_time: TimeSlot;
+  actual_duration: number;
+  content_summary: string;
+  attendance_status: ClassRecordStatus;
+  student_performance?: string;
+  homework_assigned?: string;
+  homework_deadline?: Date | string;
+  next_class_plan?: string;
+  teacher_feedback?: string;
+  project_phase?: ProjectPhase;
+  phase_content?: string;
+  attachments?: string[];
+}
+
+// 批量创建上课记录（基于排课）
+export interface BatchCreateClassRecordsRequest {
+  schedule_ids: string[];
+  default_content?: string;
+}
+
+// 选课单进度更新请求
+export interface UpdateSelectionProgressRequest {
+  item_id: string;
+  completed_hours: number;
+  status?: SelectionItemStatus;
+  current_phase?: ProjectPhase;
+  notes?: string;
+}
+
+// 课程进度统计
+export interface CourseProgressStats {
+  total_students: number;
+  active_students: number;
+  total_forms: number;
+  in_progress_forms: number;
+  total_classes_this_week: number;
+  total_hours_this_week: number;
+  average_completion_rate: number;
+}
+
