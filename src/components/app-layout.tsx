@@ -13,7 +13,8 @@ import {
   Settings,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const navigation = [
   { name: '学生管理', href: '/students', icon: Users },
   { name: '导师管理', href: '/teachers', icon: GraduationCap },
   { name: '课程管理', href: '/courses', icon: BookOpen },
+  { name: '选课单管理', href: '/selection-forms', icon: FileText },
   { name: '排课管理', href: '/schedules', icon: Calendar },
   { name: '时间设置', href: '/availability', icon: Clock },
   { name: 'AI生图', href: '/generate-image', icon: Sparkles },

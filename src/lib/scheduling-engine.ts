@@ -66,9 +66,6 @@ export class SchedulingEngine {
     // 加载学生选课数据
     const studentCoursesData = await getStudentCourses();
     
-    // TODO: 关联查询学生和课程信息
-    // 这里简化处理，实际需要关联查询
-    
     // 加载导师数据
     this.teachers = await getTeachers();
     
@@ -77,6 +74,36 @@ export class SchedulingEngine {
     
     // TODO: 加载已有排课数据（用于冲突检测）
     // this.existingSchedules = await getScheduleResults();
+    
+    // 加载学生和课程信息
+    // 注意：由于数据库限制，这里简化处理
+    // 实际生产环境应该使用关联查询
+    this.studentCourses = (studentCoursesData as any[]).map(sc => ({
+      ...sc,
+      student: {
+        id: sc.studentId,
+        name: '学生', // TODO: 从数据库关联查询
+        studentId: 'STD001',
+        major: '游戏设计',
+        applicationCountry: '美国',
+        currentStage: '基础阶段',
+        totalHours: 100,
+        usedHours: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Student,
+      course: {
+        id: sc.courseId,
+        courseId: 'CRS001',
+        name: '课程', // TODO: 从数据库关联查询
+        type: '基础课',
+        category: 'F-GD',
+        duration: '4周',
+        description: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Course,
+    }));
   }
 
   /**
