@@ -11,7 +11,16 @@ import { generateImage, extractForwardHeaders } from '@/lib/ai-image-client';
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json(
+        { error: '请求体格式错误，请提供有效的JSON' },
+        { status: 400 }
+      );
+    }
+    
     const { prompt, size } = body;
 
     if (!prompt) {
@@ -19,6 +28,17 @@ export async function POST(request: NextRequest) {
         { error: '缺少必需参数: prompt' },
         { status: 400 }
       );
+    }
+
+    // 验证尺寸参数
+    if (size && !['2K', '4K'].includes(size)) {
+      // 自定义尺寸必须在 [2560x1440, 4096x4096] 范围内
+      if (!/^\d+x\d+$/.test(size)) {
+        return NextResponse.json(
+          { error: '尺寸参数格式错误，支持: 2K, 4K, 或 WIDTHxHEIGHT 格式' },
+          { status: 400 }
+        );
+      }
     }
 
     // 提取转发头信息

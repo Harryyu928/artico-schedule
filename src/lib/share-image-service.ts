@@ -33,16 +33,28 @@ Generate a professional education progress report image with modern design:
 - Include progress bars or circular progress indicators
 - Professional infographic style suitable for sharing with parents
 - Chinese text with elegant typography
-- Dimensions: 1080x1920 (vertical format for mobile sharing)
+- Vertical layout for mobile sharing
     `.trim();
 
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size: '1080x1920' }),
+      body: JSON.stringify({ prompt, size: '2K' }),
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      console.error('API请求失败:', response.status, response.statusText);
+      return null;
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      console.error('JSON解析失败:', e);
+      return null;
+    }
+    
     return result.success ? result.url : null;
   } catch (error) {
     console.error('生成学生进度图片失败:', error);
@@ -90,16 +102,28 @@ ${coursesInfo}
 - Clean infographic layout
 - Suitable for student reference
 - Chinese text
-- Dimensions: 1080x1920 (vertical format for mobile sharing)
+- Vertical layout for mobile sharing
     `.trim();
 
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size: '1080x1920' }),
+      body: JSON.stringify({ prompt, size: '2K' }),
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      console.error('API请求失败:', response.status, response.statusText);
+      return null;
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      console.error('JSON解析失败:', e);
+      return null;
+    }
+    
     return result.success ? result.url : null;
   } catch (error) {
     console.error('生成选课单图片失败:', error);
@@ -137,16 +161,28 @@ Generate a teacher workload statistics image:
 - Professional and motivating design
 - Include charts or graphs
 - Chinese text
-- Dimensions: 1080x1920 (vertical format for mobile sharing)
+- Vertical layout for mobile sharing
     `.trim();
 
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size: '1080x1920' }),
+      body: JSON.stringify({ prompt, size: '2K' }),
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      console.error('API请求失败:', response.status, response.statusText);
+      return null;
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      console.error('JSON解析失败:', e);
+      return null;
+    }
+    
     return result.success ? result.url : null;
   } catch (error) {
     console.error('生成导师统计图片失败:', error);
@@ -186,16 +222,28 @@ Generate a class summary report image for parents:
 - Suitable for parent communication
 - Include icons or illustrations
 - Chinese text
-- Dimensions: 1080x1920 (vertical format for mobile sharing)
+- Vertical layout for mobile sharing
     `.trim();
 
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size: '1080x1920' }),
+      body: JSON.stringify({ prompt, size: '2K' }),
     });
 
-    const result = await response.json();
+    if (!response.ok) {
+      console.error('API请求失败:', response.status, response.statusText);
+      return null;
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      console.error('JSON解析失败:', e);
+      return null;
+    }
+    
     return result.success ? result.url : null;
   } catch (error) {
     console.error('生成课堂总结图片失败:', error);
@@ -232,13 +280,13 @@ Generate a system statistics dashboard image:
 - Suitable for management reporting
 - Include bar charts, pie charts, and key metrics
 - Chinese text
-- Dimensions: 1920x1080 (horizontal format for presentation)
+- Horizontal layout for presentation
     `.trim();
 
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size: '1920x1080' }),
+      body: JSON.stringify({ prompt, size: '4K' }),
     });
 
     const result = await response.json();
