@@ -363,6 +363,10 @@ export const scheduleResults = pgTable('schedule_results', {
   timeSlot: timeSlotEnum('time_slot').notNull(),
   hours: integer('hours').notNull().default(2),
   status: scheduleStatusEnum('status').notNull().default('待确认'),
+  
+  // 飞书日历事件ID
+  feishuEventId: varchar('feishu_event_id', { length: 100 }),
+  
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
