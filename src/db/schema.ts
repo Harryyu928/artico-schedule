@@ -127,6 +127,14 @@ export const timeReservationTypeEnum = pgEnum('time_reservation_type', [
   '不可用',        // 不可用时间
 ] as const);
 
+// 预留目的枚举（顾问预留时间用）
+export const reservationPurposeEnum = pgEnum('reservation_purpose', [
+  '填写时间表',    // 帮学生填写可用时间表
+  '预约上课',      // 帮学生预约上课
+  '选课指导',      // 选课指导咨询
+  '其他',          // 其他事务
+] as const);
+
 // 新增枚举定义
 export const selectionFormStatusEnum = pgEnum('selection_form_status', [
   '草稿',
@@ -313,7 +321,7 @@ export const teachers = pgTable('teachers', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// 时间表（学生+导师）
+// 时间表（学生+导师+规划顾问）
 export const timeAvailabilities = pgTable('time_availabilities', {
   id: varchar('id', { length: 36 }).primaryKey(),
   userId: varchar('user_id', { length: 36 }).notNull(),
@@ -326,8 +334,14 @@ export const timeAvailabilities = pgTable('time_availabilities', {
   // 预留类型（用于标识时间段用途）
   reservationType: timeReservationTypeEnum('reservation_type').notNull().default('空闲'),
   
-  // 如果是顾问指导时间，关联的规划顾问
+  // 预留目的（顾问预留时间时使用）
+  reservationPurpose: reservationPurposeEnum('reservation_purpose'),
+  
+  // 如果是顾问指导/预留时间，关联的规划顾问
   consultantId: varchar('consultant_id', { length: 36 }).references(() => users.id, { onDelete: 'set null' }),
+  
+  // 如果是顾问为某个学生预留的时间，关联的学生
+  studentId: varchar('student_id', { length: 36 }).references(() => students.id, { onDelete: 'set null' }),
   
   // 备注
   notes: text('notes'),

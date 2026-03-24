@@ -160,10 +160,15 @@ export interface TimeAvailability {
 // 时间预留类型
 export type TimeReservationType = '空闲' | '顾问指导' | '固定课程' | '不可用';
 
+// 预留目的类型（顾问预留时间用）
+export type ReservationPurpose = '填写时间表' | '预约上课' | '选课指导' | '其他';
+
 // 带预留类型的时间表
 export interface TimeAvailabilityWithReservation extends TimeAvailability {
   reservation_type: TimeReservationType;
-  consultant_id?: string | null; // 如果是顾问指导时间，关联的规划顾问
+  reservation_purpose?: ReservationPurpose;
+  consultant_id?: string | null;
+  student_id?: string | null;
   notes?: string | null;
 }
 
@@ -620,6 +625,47 @@ export interface StudentTimeTableView {
     week_day: WeekDay;
     time_slot: TimeSlot;
     reservation_type: TimeReservationType;
+    is_available: boolean;
+    notes?: string;
+  }>;
+}
+
+// ========== 顾问时间预留相关类型 ==========
+
+// 创建顾问时间预留请求
+export interface CreateConsultantReservationRequest {
+  consultant_id: string;
+  student_id?: string;
+  week_day: WeekDay;
+  time_slot: TimeSlot;
+  purpose?: ReservationPurpose;
+  notes?: string;
+}
+
+// 批量创建顾问时间预留请求
+export interface BatchCreateConsultantReservationRequest {
+  consultant_id: string;
+  reservations: Array<{
+    week_day: WeekDay;
+    time_slot: TimeSlot;
+    student_id?: string;
+  }>;
+  purpose?: ReservationPurpose;
+  student_id?: string; // 统一为某个学生预留
+  notes?: string;
+}
+
+// 顾问时间表视图
+export interface ConsultantTimeTableView {
+  consultant_id: string;
+  consultant_name: string;
+  time_grid: Array<{
+    week_day: WeekDay;
+    time_slot: TimeSlot;
+    reservation_type: TimeReservationType;
+    reservation_purpose?: ReservationPurpose;
+    student_id?: string;
+    student_name?: string;
     is_available: boolean;
     notes?: string;
   }>;
