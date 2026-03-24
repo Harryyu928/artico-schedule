@@ -849,6 +849,20 @@ function DefaultDashboard() {
 
       {/* 功能入口 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link href="/import">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <div className="font-medium">数据导入</div>
+                <div className="text-sm text-muted-foreground">批量导入学生/导师/课程</div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
         <Link href="/time-table/student">
           <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
