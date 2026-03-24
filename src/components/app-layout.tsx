@@ -16,7 +16,8 @@ import {
   FileText,
   ClipboardList,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Workflow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,12 @@ const navigationGroups = [
     title: '概览',
     items: [
       { name: '仪表盘', href: '/', icon: LayoutDashboard, description: '系统数据概览' },
+    ]
+  },
+  {
+    title: '工作流',
+    items: [
+      { name: '工作流管理', href: '/workflows', icon: Workflow, description: '流程跟踪与任务管理' },
     ]
   },
   {

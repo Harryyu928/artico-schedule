@@ -418,6 +418,141 @@ export const classRecords = pgTable('class_records', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ========== 工作流相关表 ==========
+
+// 工作流类型枚举
+export const workflowTypeEnum = pgEnum('workflow_type', [
+  'student_onboarding',    // 学生入学流程
+  'selection_form',        // 选课单处理流程
+  'course_progress',       // 课程进度流程
+  'application_tracking',  // 申请跟踪流程
+] as const);
+
+// 工作流阶段状态枚举
+export const workflowStageStatusEnum = pgEnum('workflow_stage_status', [
+  'pending',      // 待处理
+  'in_progress',  // 进行中
+  'completed',    // 已完成
+  'skipped',      // 已跳过
+  'blocked',      // 已阻塞
+] as const);
+
+// 任务优先级枚举
+export const taskPriorityEnum = pgEnum('task_priority', [
+  'low',     // 低
+  'medium',  // 中
+  'high',    // 高
+  'urgent',  // 紧急
+] as const);
+
+// 工作流定义表
+export const workflowDefinitions = pgTable('workflow_definitions', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  type: workflowTypeEnum('type').notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 工作流阶段定义表
+export const workflowStageDefinitions = pgTable('workflow_stage_definitions', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  workflowId: varchar('workflow_id', { length: 36 }).notNull().references(() => workflowDefinitions.id, { onDelete: 'cascade' }),
+  stageOrder: integer('stage_order').notNull(), // 阶段顺序
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  color: varchar('color', { length: 20 }).notNull().default('#6B7280'), // 看板颜色
+  icon: varchar('icon', { length: 50 }), // 图标名称
+  isRequired: boolean('is_required').notNull().default(true), // 是否必经阶段
+  autoAdvance: boolean('auto_advance').notNull().default(false), // 是否自动进入下一阶段
+  estimatedDays: integer('estimated_days'), // 预计天数
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 工作流任务模板表
+export const workflowTaskTemplates = pgTable('workflow_task_templates', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  stageId: varchar('stage_id', { length: 36 }).notNull().references(() => workflowStageDefinitions.id, { onDelete: 'cascade' }),
+  taskOrder: integer('task_order').notNull(),
+  name: varchar('name', { length: 200 }).notNull(),
+  description: text('description'),
+  assigneeRole: userRoleEnum('assignee_role'), // 默认分配给哪个角色
+  priority: taskPriorityEnum('priority').notNull().default('medium'),
+  estimatedMinutes: integer('estimated_minutes'), // 预计完成时间（分钟）
+  checklist: jsonb('checklist').$type<string[]>(), // 任务清单项
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 工作流实例表
+export const workflowInstances = pgTable('workflow_instances', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  workflowId: varchar('workflow_id', { length: 36 }).notNull().references(() => workflowDefinitions.id, { onDelete: 'cascade' }),
+  
+  // 关联实体
+  entityType: varchar('entity_type', { length: 50 }).notNull(), // student, selection_form, etc.
+  entityId: varchar('entity_id', { length: 36 }).notNull(),
+  
+  // 当前状态
+  currentStageId: varchar('current_stage_id', { length: 36 }).references(() => workflowStageDefinitions.id, { onDelete: 'set null' }),
+  status: workflowStageStatusEnum('status').notNull().default('pending'),
+  
+  // 进度
+  progress: integer('progress').notNull().default(0), // 完成百分比 0-100
+  totalTasks: integer('total_tasks').notNull().default(0),
+  completedTasks: integer('completed_tasks').notNull().default(0),
+  
+  // 时间记录
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  dueDate: date('due_date'),
+  
+  // 备注
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 工作流任务实例表
+export const workflowTaskInstances = pgTable('workflow_task_instances', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  instanceId: varchar('instance_id', { length: 36 }).notNull().references(() => workflowInstances.id, { onDelete: 'cascade' }),
+  templateId: varchar('template_id', { length: 36 }).references(() => workflowTaskTemplates.id, { onDelete: 'set null' }),
+  stageId: varchar('stage_id', { length: 36 }).notNull().references(() => workflowStageDefinitions.id, { onDelete: 'cascade' }),
+  
+  // 任务信息
+  name: varchar('name', { length: 200 }).notNull(),
+  description: text('description'),
+  priority: taskPriorityEnum('priority').notNull().default('medium'),
+  
+  // 分配
+  assigneeId: varchar('assignee_id', { length: 36 }), // 用户ID
+  assigneeRole: userRoleEnum('assignee_role'),
+  
+  // 状态
+  status: workflowStageStatusEnum('status').notNull().default('pending'),
+  
+  // 清单进度
+  checklist: jsonb('checklist').$type<{ text: string; completed: boolean }[]>(),
+  completedChecklist: integer('completed_checklist').notNull().default(0),
+  totalChecklist: integer('total_checklist').notNull().default(0),
+  
+  // 时间记录
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  dueDate: date('due_date'),
+  
+  // 备注
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // 类型导出
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
@@ -447,3 +582,15 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+
+// 工作流类型导出
+export type WorkflowDefinition = typeof workflowDefinitions.$inferSelect;
+export type NewWorkflowDefinition = typeof workflowDefinitions.$inferInsert;
+export type WorkflowStageDefinition = typeof workflowStageDefinitions.$inferSelect;
+export type NewWorkflowStageDefinition = typeof workflowStageDefinitions.$inferInsert;
+export type WorkflowTaskTemplate = typeof workflowTaskTemplates.$inferSelect;
+export type NewWorkflowTaskTemplate = typeof workflowTaskTemplates.$inferInsert;
+export type WorkflowInstance = typeof workflowInstances.$inferSelect;
+export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
+export type WorkflowTaskInstance = typeof workflowTaskInstances.$inferSelect;
+export type NewWorkflowTaskInstance = typeof workflowTaskInstances.$inferInsert;
