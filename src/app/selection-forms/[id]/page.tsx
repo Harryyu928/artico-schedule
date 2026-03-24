@@ -10,7 +10,8 @@ import {
   Clock,
   BookOpen,
   Target,
-  TrendingUp
+  TrendingUp,
+  Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { generateSelectionFormImage } from '@/lib/share-image-service';
 
 interface SelectionForm {
   id: string;
@@ -93,6 +95,8 @@ export default function SelectionFormDetailPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
 
   // 添加课程表单
   const [courseForm, setCourseForm] = useState({
@@ -251,6 +255,53 @@ export default function SelectionFormDetailPage() {
     }
   };
 
+  const handleShareForm = async () => {
+    if (!form) return;
+
+    try {
+      setGeneratingImage(true);
+      
+      const imageUrl = await generateSelectionFormImage({
+        formId: form.formId,
+        studentName: form.studentName || '学生',
+        teacherName: form.teacherName,
+        totalCourses: form.totalCourses,
+        totalHours: form.totalHours,
+        estimatedStartDate: form.estimatedStartDate,
+        estimatedEndDate: form.estimatedEndDate,
+        goals: form.goals,
+        courses: items.map(item => ({
+          courseName: item.courseName || '课程',
+          plannedHours: item.plannedHours,
+          status: item.status,
+        })),
+      });
+
+      if (imageUrl) {
+        setShareImageUrl(imageUrl);
+        toast({
+          title: '生成成功',
+          description: '选课单规划图已生成，可以分享给学生',
+        });
+      } else {
+        toast({
+          title: '生成失败',
+          description: '无法生成分享图片，请稍后重试',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('生成分享图片失败:', error);
+      toast({
+        title: '错误',
+        description: '生成分享图片失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
   const resetCourseForm = () => {
     setCourseForm({
       course_id: '',
@@ -317,12 +368,24 @@ export default function SelectionFormDetailPage() {
                 <CardTitle className="text-2xl">{form.formId}</CardTitle>
                 <p className="text-gray-500 mt-1">选课单详情</p>
               </div>
-              <Badge 
-                variant={form.status === '已完成' ? 'default' : form.status === '执行中' ? 'default' : 'secondary'}
-                className="text-base px-3 py-1"
-              >
-                {form.status}
-              </Badge>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleShareForm}
+                  disabled={generatingImage}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Share2 className="h-4 w-4" />
+                  {generatingImage ? '生成中...' : '分享'}
+                </Button>
+                <Badge 
+                  variant={form.status === '已完成' ? 'default' : form.status === '执行中' ? 'default' : 'secondary'}
+                  className="text-base px-3 py-1"
+                >
+                  {form.status}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -645,6 +708,41 @@ export default function SelectionFormDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 分享图片预览 */}
+      {shareImageUrl && (
+        <Card>
+          <CardHeader>
+            <CardTitle>选课单规划图</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <img 
+              src={shareImageUrl} 
+              alt="选课单规划图" 
+              className="w-full max-w-md mx-auto rounded-lg shadow-lg"
+            />
+            <div className="flex justify-center gap-2 mt-4">
+              <Button 
+                onClick={() => window.open(shareImageUrl, '_blank')}
+                variant="outline"
+              >
+                查看大图
+              </Button>
+              <Button 
+                onClick={() => {
+                  navigator.clipboard.writeText(shareImageUrl);
+                  toast({
+                    title: '已复制',
+                    description: '图片链接已复制到剪贴板',
+                  });
+                }}
+              >
+                复制链接
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

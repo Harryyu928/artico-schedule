@@ -27,7 +27,6 @@ const navigation = [
   { name: '选课单管理', href: '/selection-forms', icon: FileText },
   { name: '排课管理', href: '/schedules', icon: Calendar },
   { name: '时间设置', href: '/availability', icon: Clock },
-  { name: 'AI生图', href: '/generate-image', icon: Sparkles },
   { name: '系统设置', href: '/settings', icon: Settings },
 ];
 
