@@ -221,7 +221,7 @@ export async function createTeacherUser(teacherId: string, username: string, pas
     id: userId,
     username,
     passwordHash: hashPassword(password),
-    role: '导师',
+    role: teacherId ? '全职导师' : '规划顾问',
     teacherId,
     name,
     isActive: true,

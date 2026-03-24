@@ -83,8 +83,10 @@ export const courseStageEnum = pgEnum('course_stage', [
 
 export const userRoleEnum = pgEnum('user_role', [
   '学生',
-  '导师',
-  '管理员',
+  '管理员',        // 顾问主管
+  '规划顾问',      // 规划顾问
+  '全职导师',      // 全职导师
+  '兼职导师',      // 兼职导师
 ] as const);
 
 export const teacherTypeEnum = pgEnum('teacher_type', [
@@ -170,7 +172,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
 export const users = pgTable('users', {
   id: varchar('id', { length: 36 }).primaryKey(),
   username: varchar('username', { length: 50 }).notNull().unique(),
-  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }), // 飞书登录用户可为空
   role: userRoleEnum('role').notNull(),
   
   // 关联信息（根据角色不同，关联不同的实体）
@@ -180,11 +182,28 @@ export const users = pgTable('users', {
   // 基本信息
   name: varchar('name', { length: 100 }).notNull(),
   email: varchar('email', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
   avatar: varchar('avatar', { length: 500 }),
+  
+  // 飞书集成信息
+  feishuOpenId: varchar('feishu_open_id', { length: 100 }).unique(),
+  feishuUnionId: varchar('feishu_union_id', { length: 100 }).unique(),
+  feishuAccessToken: varchar('feishu_access_token', { length: 500 }),
+  feishuRefreshToken: varchar('feishu_refresh_token', { length: 500 }),
+  feishuTokenExpiresAt: timestamp('feishu_token_expires_at'),
   
   // 状态
   isActive: boolean('is_active').notNull().default(true),
   lastLoginAt: timestamp('last_login_at'),
+  lastLoginMethod: varchar('last_login_method', { length: 20 }), // 'password' | 'feishu'
+  
+  // 通知偏好
+  notificationChannels: jsonb('notification_channels').$type<{
+    feishu: boolean;
+    wechat: boolean;
+    email: boolean;
+    sms: boolean;
+  }>().default({ feishu: true, wechat: true, email: false, sms: false }),
   
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -211,6 +230,23 @@ export const students = pgTable('students', {
   currentStage: studyStageEnum('current_stage').notNull(),
   totalHours: integer('total_hours').notNull().default(0),
   usedHours: integer('used_hours').notNull().default(0),
+  
+  // 联系信息
+  email: varchar('email', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
+  wechat: varchar('wechat', { length: 50 }),
+  
+  // 负责人
+  consultantId: varchar('consultant_id', { length: 36 }), // 负责规划顾问
+  primaryTeacherId: varchar('primary_teacher_id', { length: 36 }), // 主导师
+  
+  // 通知偏好
+  notificationChannels: jsonb('notification_channels').$type<{
+    wechat: boolean;
+    email: boolean;
+    sms: boolean;
+  }>().default({ wechat: true, email: false, sms: false }),
+  
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -253,6 +289,18 @@ export const teachers = pgTable('teachers', {
   email: varchar('email', { length: 200 }),
   phone: varchar('phone', { length: 20 }),
   bio: text('bio'),
+  
+  // 飞书集成
+  feishuUserId: varchar('feishu_user_id', { length: 100 }).unique(),
+  
+  // 通知偏好
+  notificationChannels: jsonb('notification_channels').$type<{
+    feishu: boolean;
+    wechat: boolean;
+    email: boolean;
+    sms: boolean;
+  }>().default({ feishu: true, wechat: false, email: false, sms: false }),
+  
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

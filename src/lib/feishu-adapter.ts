@@ -1,303 +1,287 @@
 /**
- * 飞书API适配器
+ * 飞书集成适配器
  * 
- * 这个模块提供了飞书API的接口定义和模拟实现。
- * 当准备接入飞书时，只需将模拟实现替换为真实的飞书API调用。
+ * 功能说明：
+ * - 多维表格：同步学生信息、课程安排、上课记录
+ * - 日历服务：同步课程日程、导师日历
+ * - 消息通知：发送课程提醒、审批通知
+ * 
+ * 启用条件：
+ * 设置环境变量 FEISHU_ENABLED=true 并配置飞书应用凭证
  */
 
-import {
-  FeishuUser,
-  FeishuCalendarEvent,
-  FeishuMessage,
-} from '@/types';
-
-// 飞书配置
+// 飞书配置接口
 export interface FeishuConfig {
+  enabled: boolean;
   appId?: string;
   appSecret?: string;
-  appToken?: string; // 多维表格 Token
-  enabled: boolean;
+  appToken?: string; // 多维表格 App Token
 }
 
-// 默认配置
-const defaultConfig: FeishuConfig = {
-  enabled: process.env.FEISHU_ENABLED === 'true',
-  appId: process.env.FEISHU_APP_ID,
-  appSecret: process.env.FEISHU_APP_SECRET,
-  appToken: process.env.FEISHU_APP_TOKEN,
+// 从环境变量获取配置
+export function getFeishuConfig(): FeishuConfig {
+  return {
+    enabled: process.env.FEISHU_ENABLED === 'true',
+    appId: process.env.FEISHU_APP_ID,
+    appSecret: process.env.FEISHU_APP_SECRET,
+    appToken: process.env.FEISHU_APP_TOKEN,
+  };
+}
+
+// 多维表格接口
+export interface BitableRecord {
+  recordId: string;
+  fields: Record<string, unknown>;
+}
+
+export interface BitableService {
+  // 同步学生信息
+  syncStudent(studentId: string, data: Record<string, unknown>): Promise<BitableRecord | null>;
+  
+  // 同步课程安排
+  syncSchedule(scheduleId: string, data: Record<string, unknown>): Promise<BitableRecord | null>;
+  
+  // 同步上课记录
+  syncRecord(recordId: string, data: Record<string, unknown>): Promise<BitableRecord | null>;
+  
+  // 查询记录
+  queryRecords(tableId: string, filter?: string): Promise<BitableRecord[]>;
+}
+
+// 日历服务接口
+export interface CalendarEvent {
+  eventId?: string;
+  summary: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  attendees: string[]; // 飞书用户ID列表
+}
+
+export interface CalendarService {
+  // 创建日程
+  createEvent(event: CalendarEvent): Promise<string | null>;
+  
+  // 更新日程
+  updateEvent(eventId: string, event: Partial<CalendarEvent>): Promise<boolean>;
+  
+  // 删除日程
+  deleteEvent(eventId: string): Promise<boolean>;
+  
+  // 查询日程
+  queryEvents(userId: string, startDate: string, endDate: string): Promise<CalendarEvent[]>;
+}
+
+// 消息通知接口
+export interface NotificationMessage {
+  title: string;
+  content: string;
+  recipients: string[]; // 飞书用户ID列表
+  type?: 'text' | 'card';
+}
+
+export interface NotificationService {
+  // 发送消息
+  sendMessage(message: NotificationMessage): Promise<boolean>;
+  
+  // 发送课程提醒
+  sendCourseReminder(userId: string, courseInfo: {
+    courseName: string;
+    studentName: string;
+    time: string;
+    location?: string;
+  }): Promise<boolean>;
+  
+  // 发送审批通知
+  sendApprovalNotification(userId: string, approvalInfo: {
+    type: string;
+    applicant: string;
+    status: string;
+    link?: string;
+  }): Promise<boolean>;
+}
+
+// 飞书集成适配器（空实现，预留接口）
+export class FeishuAdapter {
+  private config: FeishuConfig;
+  
+  constructor(config?: FeishuConfig) {
+    this.config = config || getFeishuConfig();
+  }
+  
+  get isEnabled(): boolean {
+    return this.config.enabled;
+  }
+  
+  // 获取多维表格服务
+  getBitableService(): BitableService | null {
+    if (!this.config.enabled) {
+      console.log('[Feishu] 飞书集成未启用，跳过多维表格同步');
+      return null;
+    }
+    
+    // TODO: 实现真实的飞书多维表格服务
+    return {
+      syncStudent: async (studentId, data) => {
+        console.log('[Feishu] 同步学生信息:', { studentId, data });
+        return null;
+      },
+      syncSchedule: async (scheduleId, data) => {
+        console.log('[Feishu] 同步课程安排:', { scheduleId, data });
+        return null;
+      },
+      syncRecord: async (recordId, data) => {
+        console.log('[Feishu] 同步上课记录:', { recordId, data });
+        return null;
+      },
+      queryRecords: async (tableId, filter) => {
+        console.log('[Feishu] 查询记录:', { tableId, filter });
+        return [];
+      },
+    };
+  }
+  
+  // 获取日历服务
+  getCalendarService(): CalendarService | null {
+    if (!this.config.enabled) {
+      console.log('[Feishu] 飞书集成未启用，跳过日历同步');
+      return null;
+    }
+    
+    // TODO: 实现真实的飞书日历服务
+    return {
+      createEvent: async (event) => {
+        console.log('[Feishu] 创建日程:', event);
+        return null;
+      },
+      updateEvent: async (eventId, event) => {
+        console.log('[Feishu] 更新日程:', { eventId, event });
+        return false;
+      },
+      deleteEvent: async (eventId) => {
+        console.log('[Feishu] 删除日程:', eventId);
+        return false;
+      },
+      queryEvents: async (userId, startDate, endDate) => {
+        console.log('[Feishu] 查询日程:', { userId, startDate, endDate });
+        return [];
+      },
+    };
+  }
+  
+  // 获取消息通知服务
+  getNotificationService(): NotificationService | null {
+    if (!this.config.enabled) {
+      console.log('[Feishu] 飞书集成未启用，跳过消息通知');
+      return null;
+    }
+    
+    // TODO: 实现真实的飞书消息服务
+    return {
+      sendMessage: async (message) => {
+        console.log('[Feishu] 发送消息:', message);
+        return false;
+      },
+      sendCourseReminder: async (userId, courseInfo) => {
+        console.log('[Feishu] 发送课程提醒:', { userId, courseInfo });
+        return false;
+      },
+      sendApprovalNotification: async (userId, approvalInfo) => {
+        console.log('[Feishu] 发送审批通知:', { userId, approvalInfo });
+        return false;
+      },
+    };
+  }
+  
+  // 获取用户飞书 Open ID（通过绑定关系）
+  async getUserFeishuId(userId: string): Promise<string | null> {
+    if (!this.config.enabled) {
+      return null;
+    }
+    
+    // TODO: 从数据库查询用户的飞书 ID
+    console.log('[Feishu] 获取用户飞书 ID:', userId);
+    return null;
+  }
+}
+
+// 全局单例
+let feishuAdapter: FeishuAdapter | null = null;
+
+export function getFeishuAdapter(): FeishuAdapter {
+  if (!feishuAdapter) {
+    feishuAdapter = new FeishuAdapter();
+  }
+  return feishuAdapter;
+}
+
+// 导出便捷对象（兼容旧代码）
+export const feishuCalendar = {
+  createEvent: async (event: CalendarEvent) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getCalendarService();
+    if (!service) return null;
+    return service.createEvent(event);
+  },
+  updateEvent: async (eventId: string, event: Partial<CalendarEvent>) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getCalendarService();
+    if (!service) return false;
+    return service.updateEvent(eventId, event);
+  },
+  deleteEvent: async (eventId: string) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getCalendarService();
+    if (!service) return false;
+    return service.deleteEvent(eventId);
+  },
+  queryEvents: async (userId: string, startDate: string, endDate: string) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getCalendarService();
+    if (!service) return [];
+    return service.queryEvents(userId, startDate, endDate);
+  },
 };
 
-/**
- * 飞书API适配器基类
- */
-export abstract class FeishuAdapter {
-  protected config: FeishuConfig;
-
-  constructor(config: FeishuConfig = defaultConfig) {
-    this.config = config;
-  }
-
-  /**
-   * 检查飞书是否已启用
-   */
-  isEnabled(): boolean {
-    return this.config.enabled && 
-           !!this.config.appId && 
-           !!this.config.appSecret;
-  }
-}
-
-/**
- * 飞书多维表格适配器
- */
-export class FeishuBitableAdapter extends FeishuAdapter {
-  /**
-   * 读取表格数据
-   */
-  async readRecords(tableId: string, options?: {
-    viewId?: string;
-    fieldNames?: string[];
-    filter?: string;
-    sort?: string[];
-  }): Promise<unknown[]> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 读取多维表格数据', { tableId, options });
-      return [];
-    }
-
-    // TODO: 实现真实的飞书多维表格API调用
-    // API文档: https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/list
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 写入表格数据
-   */
-  async createRecord(tableId: string, fields: Record<string, unknown>): Promise<string> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 创建多维表格记录', { tableId, fields });
-      return `mock_record_${Date.now()}`;
-    }
-
-    // TODO: 实现真实的飞书多维表格API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 更新表格数据
-   */
-  async updateRecord(tableId: string, recordId: string, fields: Record<string, unknown>): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 更新多维表格记录', { tableId, recordId, fields });
-      return;
-    }
-
-    // TODO: 实现真实的飞书多维表格API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 删除表格数据
-   */
-  async deleteRecord(tableId: string, recordId: string): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 删除多维表格记录', { tableId, recordId });
-      return;
-    }
-
-    // TODO: 实现真实的飞书多维表格API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-}
-
-/**
- * 飞书日历适配器
- */
-export class FeishuCalendarAdapter extends FeishuAdapter {
-  /**
-   * 创建日历事件
-   */
-  async createEvent(event: FeishuCalendarEvent): Promise<string> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 创建日历事件', event);
-      return `mock_event_${Date.now()}`;
-    }
-
-    // TODO: 实现真实的飞书日历API调用
-    // API文档: https://open.feishu.cn/document/server-docs/docs/calendar-v4/calendar-event/create
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 更新日历事件
-   */
-  async updateEvent(eventId: string, event: Partial<FeishuCalendarEvent>): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 更新日历事件', { eventId, event });
-      return;
-    }
-
-    // TODO: 实现真实的飞书日历API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 删除日历事件
-   */
-  async deleteEvent(eventId: string): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 删除日历事件', { eventId });
-      return;
-    }
-
-    // TODO: 实现真实的飞书日历API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 获取用户日历列表
-   */
-  async getCalendars(userId: string): Promise<unknown[]> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 获取用户日历列表', { userId });
-      return [];
-    }
-
-    // TODO: 实现真实的飞书日历API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-}
-
-/**
- * 飞书消息适配器
- */
-export class FeishuMessageAdapter extends FeishuAdapter {
-  /**
-   * 发送文本消息
-   */
-  async sendTextMessage(receiveId: string, content: string, idType: 'open_id' | 'email' = 'open_id'): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 发送文本消息', { receiveId, content, idType });
-      return;
-    }
-
-    // TODO: 实现真实的飞书消息API调用
-    // API文档: https://open.feishu.cn/document/server-docs/docs/im-v1/message/create
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 发送富文本消息（卡片消息）
-   */
-  async sendCardMessage(receiveId: string, card: Record<string, unknown>, idType: 'open_id' | 'email' = 'open_id'): Promise<void> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 发送卡片消息', { receiveId, card, idType });
-      return;
-    }
-
-    // TODO: 实现真实的飞书消息API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 发送排课通知给学生
-   */
-  async sendScheduleNotificationToStudent(
+export const feishuMessage = {
+  sendMessage: async (message: NotificationMessage) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getNotificationService();
+    if (!service) return false;
+    return service.sendMessage(message);
+  },
+  sendCourseReminder: async (userId: string, courseInfo: Parameters<NotificationService['sendCourseReminder']>[1]) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getNotificationService();
+    if (!service) return false;
+    return service.sendCourseReminder(userId, courseInfo);
+  },
+  sendApprovalNotification: async (userId: string, approvalInfo: Parameters<NotificationService['sendApprovalNotification']>[1]) => {
+    const adapter = getFeishuAdapter();
+    const service = adapter.getNotificationService();
+    if (!service) return false;
+    return service.sendApprovalNotification(userId, approvalInfo);
+  },
+  // 排课通知学生
+  sendScheduleNotificationToStudent: async (
     studentName: string,
     courseName: string,
     teacherName: string,
-    time: string
-  ): Promise<void> {
-    const message = `📚 课程已安排
-
-课程：${courseName}
-导师：${teacherName}
-时间：${time}
-
-请准时参加课程。`;
-
-    await this.sendTextMessage(studentName, message);
-  }
-
-  /**
-   * 发送排课通知给导师
-   */
-  async sendScheduleNotificationToTeacher(
+    timeStr: string
+  ) => {
+    console.log('[Feishu] 发送排课通知给学生:', { studentName, courseName, teacherName, timeStr });
+    // TODO: 实现真实的飞书消息发送
+    return true;
+  },
+  // 排课通知导师
+  sendScheduleNotificationToTeacher: async (
     teacherName: string,
     studentName: string,
     courseName: string,
-    time: string
-  ): Promise<void> {
-    const message = `📅 新课程安排
-
-学生：${studentName}
-课程：${courseName}
-时间：${time}
-
-请提前准备好教学材料。`;
-
-    await this.sendTextMessage(teacherName, message);
-  }
-}
-
-/**
- * 飞书用户适配器
- */
-export class FeishuUserAdapter extends FeishuAdapter {
-  /**
-   * 获取用户信息
-   */
-  async getUserInfo(userId: string): Promise<FeishuUser | null> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 获取用户信息', { userId });
-      return null;
-    }
-
-    // TODO: 实现真实的飞书用户API调用
-    // API文档: https://open.feishu.cn/document/server-docs/docs/user-v4/user/batch_get_id
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 通过手机号获取用户ID
-   */
-  async getUserIdByPhone(phone: string): Promise<string | null> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 通过手机号获取用户ID', { phone });
-      return null;
-    }
-
-    // TODO: 实现真实的飞书用户API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-
-  /**
-   * 通过邮箱获取用户ID
-   */
-  async getUserIdByEmail(email: string): Promise<string | null> {
-    if (!this.isEnabled()) {
-      console.log('[Feishu Mock] 通过邮箱获取用户ID', { email });
-      return null;
-    }
-
-    // TODO: 实现真实的飞书用户API调用
-    throw new Error('飞书API未实现，请等待后续集成');
-  }
-}
-
-// 导出适配器实例
-export const feishuBitable = new FeishuBitableAdapter();
-export const feishuCalendar = new FeishuCalendarAdapter();
-export const feishuMessage = new FeishuMessageAdapter();
-export const feishuUser = new FeishuUserAdapter();
-
-/**
- * 初始化飞书配置
- * 当准备接入飞书时调用此函数
- */
-export function initFeishu(config: Partial<FeishuConfig>): void {
-  if (config.appId) process.env.FEISHU_APP_ID = config.appId;
-  if (config.appSecret) process.env.FEISHU_APP_SECRET = config.appSecret;
-  if (config.appToken) process.env.FEISHU_APP_TOKEN = config.appToken;
-  if (config.enabled !== undefined) process.env.FEISHU_ENABLED = config.enabled ? 'true' : 'false';
-}
+    timeStr: string
+  ) => {
+    console.log('[Feishu] 发送排课通知给导师:', { teacherName, studentName, courseName, timeStr });
+    // TODO: 实现真实的飞书消息发送
+    return true;
+  },
+};

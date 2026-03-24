@@ -402,13 +402,9 @@ export class SchedulingEngine {
       await feishuCalendar.createEvent({
         summary: `ARTDiCO课程 - ${course.name}`,
         description: `学生：${student.name}\n导师：${teacher.name}\n课程：${course.name}`,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        attendees: [
-          { open_id: student.id },
-          { open_id: teacher.id },
-        ],
-        reminders: [{ minutes: 30 }],
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        attendees: [student.id, teacher.id],
       });
     } catch (error) {
       console.error('发送通知失败:', error);
