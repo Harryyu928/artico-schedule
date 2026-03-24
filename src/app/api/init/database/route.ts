@@ -1,0 +1,313 @@
+/**
+ * 数据库表创建脚本
+ * 
+ * 用于创建缺失的数据库表
+ * 执行方式: 通过 API 调用 /api/init/database
+ */
+
+import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { sql } from 'drizzle-orm';
+
+// 创建枚举类型
+const CREATE_ENUMS = `
+-- 创建枚举类型（如果不存在）
+DO $$ BEGIN
+    CREATE TYPE teacher_type AS ENUM ('全职', '兼职');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE course_category AS ENUM ('F-GD', 'F-TA', 'F-GA', 'F-3D', 'F-AN', 'P-GD', 'P-AN', 'P-GA', 'P-CA', 'P-3DGA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE time_reservation_type AS ENUM ('空闲', '顾问指导', '固定课程', '不可用');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE reservation_purpose AS ENUM ('填写时间表', '预约上课', '选课指导', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+`;
+
+// 创建 teachers 表
+const CREATE_TEACHERS_TABLE = `
+CREATE TABLE IF NOT EXISTS teachers (
+    id VARCHAR(36) PRIMARY KEY,
+    teacher_id VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    teachable_courses course_category[] NOT NULL DEFAULT '{}',
+    teacher_type teacher_type NOT NULL DEFAULT '全职',
+    max_weekly_hours INTEGER NOT NULL DEFAULT 20,
+    current_hours INTEGER NOT NULL DEFAULT 0,
+    email VARCHAR(200),
+    phone VARCHAR(20),
+    bio TEXT,
+    feishu_user_id VARCHAR(100) UNIQUE,
+    notification_channels JSONB DEFAULT '{"feishu": true, "wechat": false, "email": false, "sms": false}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 time_availabilities 表
+const CREATE_TIME_AVAILABILITIES_TABLE = `
+CREATE TABLE IF NOT EXISTS time_availabilities (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    user_role user_role NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    week_day week_day NOT NULL,
+    time_slot time_slot NOT NULL,
+    is_available BOOLEAN NOT NULL DEFAULT true,
+    reservation_type time_reservation_type NOT NULL DEFAULT '空闲',
+    reservation_purpose reservation_purpose,
+    consultant_id VARCHAR(36),
+    student_id VARCHAR(36),
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 schedule_results 表
+const CREATE_SCHEDULE_RESULTS_TABLE = `
+CREATE TABLE IF NOT EXISTS schedule_results (
+    id VARCHAR(36) PRIMARY KEY,
+    schedule_id VARCHAR(50) NOT NULL UNIQUE,
+    student_id VARCHAR(36) NOT NULL,
+    teacher_id VARCHAR(36) NOT NULL,
+    course_id VARCHAR(36) NOT NULL,
+    student_course_id VARCHAR(36),
+    date DATE NOT NULL,
+    week_day week_day NOT NULL,
+    time_slot time_slot NOT NULL,
+    hours INTEGER NOT NULL DEFAULT 2,
+    status schedule_status NOT NULL DEFAULT '待确认',
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 course_selection_forms 表
+const CREATE_COURSE_SELECTION_FORMS_TABLE = `
+CREATE TABLE IF NOT EXISTS course_selection_forms (
+    id VARCHAR(36) PRIMARY KEY,
+    form_id VARCHAR(50) NOT NULL UNIQUE,
+    student_id VARCHAR(36) NOT NULL,
+    consultant_id VARCHAR(36),
+    status selection_form_status NOT NULL DEFAULT '草稿',
+    total_hours INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 course_selection_items 表
+const CREATE_COURSE_SELECTION_ITEMS_TABLE = `
+CREATE TABLE IF NOT EXISTS course_selection_items (
+    id VARCHAR(36) PRIMARY KEY,
+    form_id VARCHAR(36) NOT NULL,
+    course_id VARCHAR(36) NOT NULL,
+    hours INTEGER NOT NULL DEFAULT 2,
+    priority INTEGER NOT NULL DEFAULT 1,
+    status selection_item_status NOT NULL DEFAULT '待排课',
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 class_records 表
+const CREATE_CLASS_RECORDS_TABLE = `
+CREATE TABLE IF NOT EXISTS class_records (
+    id VARCHAR(36) PRIMARY KEY,
+    record_id VARCHAR(50) NOT NULL UNIQUE,
+    student_id VARCHAR(36) NOT NULL,
+    teacher_id VARCHAR(36) NOT NULL,
+    course_id VARCHAR(36) NOT NULL,
+    schedule_id VARCHAR(36),
+    class_date DATE NOT NULL,
+    week_day week_day NOT NULL,
+    time_slot time_slot NOT NULL,
+    hours INTEGER NOT NULL DEFAULT 2,
+    status class_record_status NOT NULL DEFAULT '待填写',
+    content TEXT,
+    homework TEXT,
+    next_plan TEXT,
+    student_feedback TEXT,
+    teacher_notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 workflow 相关表
+const CREATE_WORKFLOW_TABLES = `
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_stage_definitions (
+    id VARCHAR(36) PRIMARY KEY,
+    workflow_id VARCHAR(36) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    order_index INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_task_templates (
+    id VARCHAR(36) PRIMARY KEY,
+    stage_id VARCHAR(36) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    assignee_type VARCHAR(20) NOT NULL,
+    order_index INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_instances (
+    id VARCHAR(36) PRIMARY KEY,
+    workflow_id VARCHAR(36) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(36) NOT NULL,
+    current_stage INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT '进行中',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_task_instances (
+    id VARCHAR(36) PRIMARY KEY,
+    instance_id VARCHAR(36) NOT NULL,
+    task_id VARCHAR(36) NOT NULL,
+    assignee_id VARCHAR(36),
+    status VARCHAR(20) NOT NULL DEFAULT '待处理',
+    completed_at TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 插入测试导师数据
+const INSERT_TEST_TEACHERS = `
+INSERT INTO teachers (id, teacher_id, name, teachable_courses, teacher_type, max_weekly_hours, current_hours, email)
+VALUES 
+    ('teacher-001', 'T001', '王老师', ARRAY['F-GD', 'F-GA', 'P-GD']::course_category[], '全职', 20, 0, 'wang@artico.com'),
+    ('teacher-002', 'T002', '李老师', ARRAY['F-AN', 'P-AN', 'F-3D']::course_category[], '全职', 20, 0, 'li@artico.com'),
+    ('teacher-003', 'T003', '张老师', ARRAY['F-TA', 'P-3DGA']::course_category[], '兼职', 10, 0, 'zhang@artico.com')
+ON CONFLICT (id) DO NOTHING;
+`;
+
+export async function GET() {
+  try {
+    const results: string[] = [];
+    
+    // 创建枚举类型
+    try {
+      await db.execute(sql.raw(CREATE_ENUMS));
+      results.push('✅ 枚举类型创建成功');
+    } catch (e) {
+      results.push('⚠️ 枚举类型已存在或创建失败');
+    }
+    
+    // 创建 teachers 表
+    try {
+      await db.execute(sql.raw(CREATE_TEACHERS_TABLE));
+      results.push('✅ teachers 表创建成功');
+    } catch (e) {
+      results.push('⚠️ teachers 表已存在或创建失败: ' + (e as Error).message);
+    }
+    
+    // 创建 time_availabilities 表
+    try {
+      await db.execute(sql.raw(CREATE_TIME_AVAILABILITIES_TABLE));
+      results.push('✅ time_availabilities 表创建成功');
+    } catch (e) {
+      results.push('⚠️ time_availabilities 表已存在或创建失败');
+    }
+    
+    // 创建 schedule_results 表
+    try {
+      await db.execute(sql.raw(CREATE_SCHEDULE_RESULTS_TABLE));
+      results.push('✅ schedule_results 表创建成功');
+    } catch (e) {
+      results.push('⚠️ schedule_results 表已存在或创建失败');
+    }
+    
+    // 创建 course_selection_forms 表
+    try {
+      await db.execute(sql.raw(CREATE_COURSE_SELECTION_FORMS_TABLE));
+      results.push('✅ course_selection_forms 表创建成功');
+    } catch (e) {
+      results.push('⚠️ course_selection_forms 表已存在或创建失败');
+    }
+    
+    // 创建 course_selection_items 表
+    try {
+      await db.execute(sql.raw(CREATE_COURSE_SELECTION_ITEMS_TABLE));
+      results.push('✅ course_selection_items 表创建成功');
+    } catch (e) {
+      results.push('⚠️ course_selection_items 表已存在或创建失败');
+    }
+    
+    // 创建 class_records 表
+    try {
+      await db.execute(sql.raw(CREATE_CLASS_RECORDS_TABLE));
+      results.push('✅ class_records 表创建成功');
+    } catch (e) {
+      results.push('⚠️ class_records 表已存在或创建失败');
+    }
+    
+    // 创建 workflow 表
+    try {
+      await db.execute(sql.raw(CREATE_WORKFLOW_TABLES));
+      results.push('✅ workflow 相关表创建成功');
+    } catch (e) {
+      results.push('⚠️ workflow 相关表已存在或创建失败');
+    }
+    
+    // 插入测试导师数据
+    try {
+      await db.execute(sql.raw(INSERT_TEST_TEACHERS));
+      results.push('✅ 测试导师数据插入成功');
+    } catch (e) {
+      results.push('⚠️ 测试导师数据已存在或插入失败');
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: '数据库表初始化完成',
+      results,
+    });
+    
+  } catch (error) {
+    console.error('数据库初始化失败:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: '数据库初始化失败',
+        details: (error as Error).message 
+      },
+      { status: 500 }
+    );
+  }
+}

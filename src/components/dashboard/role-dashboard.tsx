@@ -753,32 +753,76 @@ function StudentDashboardContent({ data }: { data: DashboardData }) {
 
 // 默认仪表盘（未登录或未知角色）
 function DefaultDashboard() {
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  const handleRoleSwitch = async (role: UserRole) => {
+    setSwitching(role);
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', role }),
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error('切换角色失败:', err);
+      setSwitching(null);
+    }
+  };
+
+  const roles: Array<{ role: UserRole; label: string; desc: string; color: string }> = [
+    { role: '管理员', label: '管理员', desc: '全局管理、系统设置', color: 'bg-red-500' },
+    { role: '规划顾问', label: '规划顾问', desc: '学生管理、选课指导', color: 'bg-blue-500' },
+    { role: '全职导师', label: '全职导师', desc: '课程安排、学生进度', color: 'bg-green-500' },
+    { role: '兼职导师', label: '兼职导师', desc: '简化版课程管理', color: 'bg-purple-500' },
+    { role: '学生', label: '学生', desc: '个人学习进度', color: 'bg-orange-500' },
+  ];
+
   return (
     <div className="space-y-8">
       {/* 欢迎横幅 */}
-      <div className="gradient-orange rounded-2xl p-8 text-white shadow-orange-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">
-              欢迎使用 ARTiCO 教务管理系统
-            </h1>
-            <p className="text-white/90 text-lg mb-6">
-              智能化的教务管理解决方案，让排课更简单高效
-            </p>
-            <div className="flex gap-3 flex-wrap">
-              <Link href="/login">
-                <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-semibold px-6 py-3">
-                  登录系统
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-white shadow-lg">
+        <h1 className="text-4xl font-bold mb-2">
+          欢迎使用 ARTiCO 教务管理系统
+        </h1>
+        <p className="text-white/90 text-lg mb-6">
+          智能化的教务管理解决方案，让排课更简单高效
+        </p>
       </div>
+
+      {/* 角色切换 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">🔐 快速切换角色测试</CardTitle>
+          <CardDescription>
+            点击下方按钮切换不同角色，体验各角色的仪表盘
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {roles.map(({ role, label, desc, color }) => (
+              <Button
+                key={role}
+                variant="outline"
+                className={`h-auto py-4 flex-col gap-1 border-2 hover:border-orange-300 ${switching === role ? 'opacity-50' : ''}`}
+                onClick={() => handleRoleSwitch(role)}
+                disabled={switching !== null}
+              >
+                <div className={`w-3 h-3 rounded-full ${color}`} />
+                <span className="font-semibold">{label}</span>
+                <span className="text-xs text-muted-foreground">{desc}</span>
+                {switching === role && (
+                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                )}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 系统特性 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="text-center p-6">
+        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
           <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-orange-500" />
           </div>
@@ -786,7 +830,7 @@ function DefaultDashboard() {
           <p className="text-gray-500">基于学生和导师时间自动匹配排课</p>
         </Card>
 
-        <Card className="text-center p-6">
+        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
           <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
             <FileText className="w-8 h-8 text-amber-500" />
           </div>
@@ -794,13 +838,72 @@ function DefaultDashboard() {
           <p className="text-gray-500">完整的选课单创建和进度追踪</p>
         </Card>
 
-        <Card className="text-center p-6">
+        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
           <div className="w-16 h-16 rounded-2xl bg-yellow-100 flex items-center justify-center mx-auto mb-4">
             <Users className="w-8 h-8 text-yellow-600" />
           </div>
           <h3 className="text-xl font-semibold mb-2">多角色权限</h3>
           <p className="text-gray-500">管理员、顾问、导师、学生分级权限</p>
         </Card>
+      </div>
+
+      {/* 功能入口 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link href="/time-table/student">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <div className="font-medium">学生时间表</div>
+                <div className="text-sm text-muted-foreground">填写可用时间</div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/time-table/teacher">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <div className="font-medium">导师时间表</div>
+                <div className="text-sm text-muted-foreground">管理授课时间</div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/students">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Users className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <div className="font-medium">学生管理</div>
+                <div className="text-sm text-muted-foreground">查看学生列表</div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/teachers">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-purple-500" />
+              </div>
+              <div>
+                <div className="font-medium">导师管理</div>
+                <div className="text-sm text-muted-foreground">查看导师列表</div>
+              </div>
+            </div>
+          </Card>
+        </Link>
       </div>
     </div>
   );
