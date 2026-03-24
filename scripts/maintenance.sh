@@ -1,7 +1,16 @@
 #!/bin/bash
 
 # ARTiCO 教务系统维护脚本
-# 使用方法: ./scripts/maintenance.sh [command]
+# 使用方法: ./scripts/maintenance.sh [命令]
+# 
+# 这是一个简单的工具，帮助你检查和维护系统。
+# 不懂技术也能用！
+#
+# 常用命令：
+#   status   - 检查系统是否正常
+#   logs     - 查看系统日志
+#   restart  - 重启系统
+#   help     - 显示帮助信息
 
 set -e
 
@@ -9,19 +18,24 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 日志函数
 log_info() {
-  echo -e "${GREEN}[INFO]${NC} $1"
+  echo -e "${GREEN}[✓]${NC} $1"
 }
 
 log_warn() {
-  echo -e "${YELLOW}[WARN]${NC} $1"
+  echo -e "${YELLOW}[!]${NC} $1"
 }
 
 log_error() {
-  echo -e "${RED}[ERROR]${NC} $1"
+  echo -e "${RED}[✗]${NC} $1"
+}
+
+log_tip() {
+  echo -e "${BLUE}[💡]${NC} $1"
 }
 
 # 检查服务状态
@@ -190,26 +204,46 @@ run_tests() {
 # 帮助信息
 show_help() {
   echo "
-ARTiCO 教务系统维护脚本
+╔═══════════════════════════════════════════════════════════════╗
+║             ARTiCO 教务系统 - 维护工具                         ║
+╠═══════════════════════════════════════════════════════════════╣
+║  使用方法: ./scripts/maintenance.sh [命令]                     ║
+╚═══════════════════════════════════════════════════════════════╝
 
-使用方法: ./scripts/maintenance.sh [command]
+📋 常用命令:
 
-命令:
-  status      检查服务状态
-  logs        查看日志 (可选参数: app|console|error)
-  restart     重启服务
-  clear       清理缓存
-  db          数据库健康检查
-  info        查看系统信息
-  backup      备份数据
-  test        运行测试
-  help        显示帮助信息
+  status     检查系统是否正常运行 ⭐ 最常用
+  logs       查看系统日志（今天发生了什么）
+  error      查看错误日志（有没有出问题）
+  restart    重启系统（系统卡住时使用）
+  info       查看系统信息
+  help       显示这个帮助信息
 
-示例:
-  ./scripts/maintenance.sh status
-  ./scripts/maintenance.sh logs app 100
-  ./scripts/maintenance.sh logs error
-  ./scripts/maintenance.sh backup /tmp/my_backup
+📖 详细命令:
+
+  logs app      查看应用日志
+  logs console  查看浏览器日志
+  logs error    只看错误信息
+  clear         清理缓存
+  db            检查数据库连接
+  backup        备份数据
+
+💡 使用示例:
+
+  检查系统状态:
+    ./scripts/maintenance.sh status
+
+  查看有没有错误:
+    ./scripts/maintenance.sh logs error
+
+  重启系统:
+    ./scripts/maintenance.sh restart
+
+🔗 快捷访问:
+
+  系统网址: https://a88dfcc3-0783-40eb-9263-db92a9462f7e.dev.coze.site
+  详细文档: docs/小白维护手册.md
+
 "
 }
 
@@ -224,6 +258,9 @@ main() {
       ;;
     logs)
       view_logs $1 $2
+      ;;
+    error)
+      view_logs error 30
       ;;
     restart)
       restart_service
