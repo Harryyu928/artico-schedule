@@ -134,13 +134,17 @@ export default function DashboardContent() {
             </p>
             <div className="flex gap-3 flex-wrap">
               <Link href="/students">
-                <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-semibold">
+                <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-semibold px-6 py-3">
                   <Users className="mr-2 h-5 w-5" />
                   开始管理
                 </Button>
               </Link>
               <Link href="/schedules">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 font-semibold">
+                <Button 
+                  size="lg" 
+                  variant="ghost"
+                  className="border-2 border-white bg-transparent text-white hover:bg-white/10 font-semibold px-6 py-3"
+                >
                   <Calendar className="mr-2 h-5 w-5" />
                   查看排课
                 </Button>
