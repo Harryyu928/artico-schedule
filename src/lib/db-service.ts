@@ -183,8 +183,8 @@ export async function getTeachers(options?: {
   offset?: number;
 }) {
   try {
-    let query = db.select().from(teachers);
-    return query;
+    const result = await db.select().from(teachers);
+    return result;
   } catch (error) {
     console.error('获取导师列表失败:', error);
     return [];
@@ -320,8 +320,8 @@ export async function getStudentCourses(options?: {
   offset?: number;
 }) {
   try {
-    let query = db.select().from(studentCourses);
-    return query;
+    const result = await db.select().from(studentCourses);
+    return result;
   } catch (error) {
     console.error('获取学生选课列表失败:', error);
     return [];
@@ -445,10 +445,10 @@ export async function getTimeAvailabilities(options: {
     }
 
     if (conditions.length > 0) {
-      return db.select().from(timeAvailabilities).where(and(...conditions));
+      return await db.select().from(timeAvailabilities).where(and(...conditions));
     }
 
-    return db.select().from(timeAvailabilities);
+    return await db.select().from(timeAvailabilities);
   } catch (error) {
     console.error('获取时间可用性失败:', error);
     return [];
@@ -513,8 +513,8 @@ export async function getScheduleResults(options?: {
   offset?: number;
 }) {
   try {
-    let query = db.select().from(scheduleResults);
-    return query;
+    const result = await db.select().from(scheduleResults);
+    return result;
   } catch (error) {
     console.error('获取排课结果失败:', error);
     return [];
