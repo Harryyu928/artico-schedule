@@ -247,18 +247,31 @@ export class SchedulingEngine {
   }
 
   /**
-   * 获取用户可用时间
+   * 获取用户可用时间（排除预留时间）
+   * 只有 reservationType 为 '空闲' 的时间才能用于排课
    */
   private getUserAvailableTimes(userId: string, userRole: string): Array<{
     weekDay: WeekDay;
     timeSlot: TimeSlot;
   }> {
     return this.timeAvailabilities
-      .filter(t => 
-        t.userId === userId && 
-        t.userRole === userRole && 
-        t.isAvailable
-      )
+      .filter(t => {
+        // 基本条件：用户ID和角色匹配
+        if (t.userId !== userId || t.userRole !== userRole) {
+          return false;
+        }
+        
+        // 检查预留类型
+        // 只有 '空闲' 类型的时间才能用于排课
+        // '顾问指导'、'固定课程'、'不可用' 都不能排课
+        const reservationType = (t as any).reservationType;
+        if (reservationType && reservationType !== '空闲') {
+          return false;
+        }
+        
+        // 必须可用
+        return t.isAvailable;
+      })
       .map(t => ({
         weekDay: t.weekDay as WeekDay,
         timeSlot: t.timeSlot as TimeSlot,

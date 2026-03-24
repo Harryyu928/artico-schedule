@@ -157,6 +157,16 @@ export interface TimeAvailability {
   updated_at: Date;
 }
 
+// 时间预留类型
+export type TimeReservationType = '空闲' | '顾问指导' | '固定课程' | '不可用';
+
+// 带预留类型的时间表
+export interface TimeAvailabilityWithReservation extends TimeAvailability {
+  reservation_type: TimeReservationType;
+  consultant_id?: string | null; // 如果是顾问指导时间，关联的规划顾问
+  notes?: string | null;
+}
+
 // 排课结果表
 export interface ScheduleResult {
   id: string;
@@ -574,5 +584,44 @@ export interface CourseProgressStats {
   total_classes_this_week: number;
   total_hours_this_week: number;
   average_completion_rate: number;
+}
+
+// ========== 时间预留相关类型 ==========
+
+// 创建时间预留请求
+export interface CreateTimeReservationRequest {
+  student_id: string;
+  consultant_id?: string;
+  week_day: WeekDay;
+  time_slot: TimeSlot;
+  reservation_type?: TimeReservationType;
+  notes?: string;
+}
+
+// 批量创建时间预留请求
+export interface BatchCreateTimeReservationRequest {
+  student_id: string;
+  consultant_id?: string;
+  reservations: Array<{
+    week_day: WeekDay;
+    time_slot: TimeSlot;
+  }>;
+  reservation_type?: TimeReservationType;
+  notes?: string;
+}
+
+// 学生时间表视图（用于显示预留时间）
+export interface StudentTimeTableView {
+  student_id: string;
+  student_name: string;
+  consultant_id?: string;
+  consultant_name?: string;
+  time_grid: Array<{
+    week_day: WeekDay;
+    time_slot: TimeSlot;
+    reservation_type: TimeReservationType;
+    is_available: boolean;
+    notes?: string;
+  }>;
 }
 

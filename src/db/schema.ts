@@ -119,6 +119,14 @@ export const scheduleStatusEnum = pgEnum('schedule_status', [
   '取消',
 ] as const);
 
+// 时间预留类型枚举
+export const timeReservationTypeEnum = pgEnum('time_reservation_type', [
+  '空闲',          // 可用于排课
+  '顾问指导',      // 规划顾问选课指导时间（预留）
+  '固定课程',      // 固定安排的课程时间
+  '不可用',        // 不可用时间
+] as const);
+
 // 新增枚举定义
 export const selectionFormStatusEnum = pgEnum('selection_form_status', [
   '草稿',
@@ -314,6 +322,16 @@ export const timeAvailabilities = pgTable('time_availabilities', {
   weekDay: weekDayEnum('week_day').notNull(),
   timeSlot: timeSlotEnum('time_slot').notNull(),
   isAvailable: boolean('is_available').notNull().default(true),
+  
+  // 预留类型（用于标识时间段用途）
+  reservationType: timeReservationTypeEnum('reservation_type').notNull().default('空闲'),
+  
+  // 如果是顾问指导时间，关联的规划顾问
+  consultantId: varchar('consultant_id', { length: 36 }).references(() => users.id, { onDelete: 'set null' }),
+  
+  // 备注
+  notes: text('notes'),
+  
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
