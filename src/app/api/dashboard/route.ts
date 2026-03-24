@@ -224,6 +224,7 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
         pendingRecords: pendingRecordsCount.count,
       },
       quickActions: [
+        { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock' },
         { label: '我的学生', href: '/teacher/students', icon: 'Users' },
         { label: '课程表', href: '/teacher/schedule', icon: 'Calendar' },
         { label: '上课记录', href: '/teacher/records', icon: 'FileText' },
@@ -283,6 +284,7 @@ async function getStudentDashboard(user: typeof users.$inferSelect) {
         selectionForms: formsCount.count,
       },
       quickActions: [
+        { label: '我的时间表', href: '/time-table/student', icon: 'Clock' },
         { label: '我的课程', href: '/student/courses', icon: 'BookOpen' },
         { label: '课程表', href: '/student/schedule', icon: 'Calendar' },
         { label: '上课记录', href: '/student/records', icon: 'FileText' },
