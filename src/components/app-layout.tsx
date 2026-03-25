@@ -18,9 +18,16 @@ import {
   ChevronDown,
   ChevronRight,
   Workflow,
+  Receipt,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+/**
+ * 系统核心工作流程：
+ * 学生/导师 → 课程配置 → 选课指导 → 时间设置 → 自动排课 → 上课记录 → 结课审核 → 课酬统计
+ */
 
 // 导航分组配置
 const navigationGroups = [
@@ -58,9 +65,16 @@ const navigationGroups = [
     ]
   },
   {
-    title: '上课记录',
+    title: '上课管理',
     items: [
       { name: '上课记录', href: '/class-records', icon: ClipboardList, description: '填写上课记录' },
+      { name: '结课审核', href: '/settlements', icon: CheckCircle2, description: '课程结课审核与课酬管理' },
+    ]
+  },
+  {
+    title: '财务管理',
+    items: [
+      { name: '课酬统计', href: '/salary', icon: Receipt, description: '导师课酬统计与报表' },
     ]
   },
   {
@@ -213,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {/* 工作流程提示 */}
               <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-full">
                 <span className="text-orange-500 font-medium">工作流程：</span>
-                <span>创建选课单 → 设置时间 → 自动排课 → 上课记录</span>
+                <span>选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
               </div>
             </div>
           </div>
