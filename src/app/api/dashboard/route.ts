@@ -1,15 +1,15 @@
 /**
- * 仪表盘 API
+ * 运营仪表盘 API
  * 
- * 根据用户角色返回不同的统计数据
+ * 提供多维度数据分析，从运营角度出发
  * GET /api/dashboard - 获取仪表盘数据
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
-import { users, students, teachers, courses, scheduleResults, studentCourses, timeAvailabilities, courseSelectionForms, classRecords } from '@/db/schema';
-import { eq, and, gte, lte, sql, count } from 'drizzle-orm';
+import { users, students, teachers, courses, scheduleResults, studentCourses, courseSelectionForms, classRecords } from '@/db/schema';
+import { eq, and, gte, lte, sql, count, desc, asc, inArray, not, isNull } from 'drizzle-orm';
 import type { UserRole } from '@/types/permissions';
 
 // GET - 获取仪表盘数据
@@ -65,31 +65,209 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 管理员仪表盘数据
+// ==================== 管理员仪表盘（运营视角）====================
+
 async function getAdminDashboard(user: typeof users.$inferSelect) {
-  // 获取统计数据
-  const [studentCount] = await db.select({ count: count() }).from(students);
-  const [teacherCount] = await db.select({ count: count() }).from(teachers);
-  const [courseCount] = await db.select({ count: count() }).from(courses);
-  const [scheduleCount] = await db.select({ count: count() }).from(scheduleResults);
-  const [pendingSelectionCount] = await db.select({ count: count() })
-    .from(courseSelectionForms)
-    .where(eq(courseSelectionForms.status, '已确认'));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   
-  // 本周新增学生
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const [newStudentsThisWeek] = await db.select({ count: count() })
+  // ========== 1. 核心业务指标 ==========
+  const [
+    studentCountResult,
+    teacherCountResult,
+    courseCountResult,
+    scheduleCountResult,
+    classRecordCountResult,
+  ] = await Promise.all([
+    db.select({ count: count() }).from(students),
+    db.select({ count: count() }).from(teachers),
+    db.select({ count: count() }).from(courses),
+    db.select({ count: count() }).from(scheduleResults),
+    db.select({ count: count() }).from(classRecords),
+  ]);
+  
+  // 本周/本月新增学生
+  const newStudentsThisWeekResult = await db.select({ count: count() })
     .from(students)
     .where(gte(students.createdAt, weekAgo));
   
+  const newStudentsThisMonthResult = await db.select({ count: count() })
+    .from(students)
+    .where(gte(students.createdAt, monthAgo));
+  
   // 今日排课数
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [todaySchedules] = await db.select({ count: count() })
+  const todaySchedulesResult = await db.select({ count: count() })
     .from(scheduleResults)
     .where(gte(scheduleResults.createdAt, today));
+
+  // ========== 2. 学生多维度分析 ==========
+  const allStudents = await db.select().from(students);
   
+  // 年级/阶段分布
+  const stageDistribution = allStudents.reduce((acc, s) => {
+    acc[s.currentStage] = (acc[s.currentStage] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // 专业方向分布
+  const majorDistribution = allStudents.reduce((acc, s) => {
+    acc[s.major] = (acc[s.major] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // 申请国家分布
+  const countryDistribution = allStudents.reduce((acc, s) => {
+    acc[s.applicationCountry] = (acc[s.applicationCountry] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // 低课时预警（剩余课时<10）
+  const lowHourStudents = allStudents.filter(s => (s.totalHours - s.usedHours) < 10);
+  
+  // 课时耗尽学生（剩余课时=0）
+  const exhaustedStudents = allStudents.filter(s => s.totalHours <= s.usedHours);
+
+  // ========== 3. 导师分析 ==========
+  const allTeachers = await db.select().from(teachers);
+  
+  // 全职/兼职分布
+  const teacherTypeDistribution = allTeachers.reduce((acc, t) => {
+    acc[t.teacherType] = (acc[t.teacherType] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // 导师课时利用率
+  const teacherUtilization = allTeachers.map(t => ({
+    id: t.id,
+    name: t.name,
+    type: t.teacherType,
+    currentHours: t.currentHours,
+    maxHours: t.maxWeeklyHours,
+    utilization: t.maxWeeklyHours > 0 ? Math.round((t.currentHours / t.maxWeeklyHours) * 100) : 0,
+  }));
+  
+  // 高负荷导师（利用率>80%）
+  const highLoadTeachers = teacherUtilization.filter(t => t.utilization > 80);
+  
+  // 低负荷导师（利用率<30%）
+  const lowLoadTeachers = teacherUtilization.filter(t => t.utilization < 30);
+
+  // ========== 4. 课程分析 ==========
+  // 热门课程排行（按排课数量）
+  const courseStats = await db
+    .select({
+      courseId: scheduleResults.courseId,
+      count: count(),
+    })
+    .from(scheduleResults)
+    .groupBy(scheduleResults.courseId)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+  
+  // 获取课程名称
+  const courseIds = courseStats.map(cs => cs.courseId);
+  const courseInfo = courseIds.length > 0 
+    ? await db.select().from(courses).where(inArray(courses.id, courseIds))
+    : [];
+  
+  const courseMap = new Map(courseInfo.map(c => [c.id, c]));
+  const topCourses = courseStats.map(cs => ({
+    ...courseMap.get(cs.courseId),
+    scheduleCount: cs.count,
+  })).filter(c => c.id);
+
+  // ========== 5. 排课分析 ==========
+  // 时段分布
+  const timeSlotDistribution = await db
+    .select({
+      timeSlot: scheduleResults.timeSlot,
+      count: count(),
+    })
+    .from(scheduleResults)
+    .groupBy(scheduleResults.timeSlot);
+  
+  // 周几分布
+  const weekDayDistribution = await db
+    .select({
+      weekDay: scheduleResults.weekDay,
+      count: count(),
+    })
+    .from(scheduleResults)
+    .groupBy(scheduleResults.weekDay);
+  
+  // 排课状态分布
+  const scheduleStatusDistribution = await db
+    .select({
+      status: scheduleResults.status,
+      count: count(),
+    })
+    .from(scheduleResults)
+    .groupBy(scheduleResults.status);
+
+  // ========== 6. 财务概览 ==========
+  const totalHours = allStudents.reduce((sum, s) => sum + s.totalHours, 0);
+  const usedHours = allStudents.reduce((sum, s) => sum + s.usedHours, 0);
+  const remainingHours = totalHours - usedHours;
+
+  // ========== 7. 预警指标 ==========
+  // 待处理选课单
+  const pendingFormsResult = await db.select({ count: count() })
+    .from(courseSelectionForms)
+    .where(eq(courseSelectionForms.status, '已确认'));
+  
+  // 待填上课记录
+  const pendingRecordsResult = await db.select({ count: count() })
+    .from(classRecords)
+    .where(eq(classRecords.attendanceStatus, '已排课'));
+  
+  // 长时间未上课学生（超过14天没有上课记录）
+  const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const recentClassStudentIds = await db
+    .selectDistinct({ studentId: classRecords.studentId })
+    .from(classRecords)
+    .where(gte(classRecords.createdAt, twoWeeksAgo));
+  
+  const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
+  const inactiveStudents = allStudents.filter(s => !recentStudentIdSet.has(s.id));
+
+  // ========== 8. 趋势数据（近30天）==========
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  // 学生增长趋势
+  const studentGrowth = await db
+    .select({
+      date: sql<string>`DATE(${students.createdAt})`.as('date'),
+      count: count(),
+    })
+    .from(students)
+    .where(gte(students.createdAt, thirtyDaysAgo))
+    .groupBy(sql`DATE(${students.createdAt})`)
+    .orderBy(asc(sql`DATE(${students.createdAt})`));
+  
+  // 排课趋势
+  const scheduleGrowth = await db
+    .select({
+      date: sql<string>`DATE(${scheduleResults.createdAt})`.as('date'),
+      count: count(),
+    })
+    .from(scheduleResults)
+    .where(gte(scheduleResults.createdAt, thirtyDaysAgo))
+    .groupBy(sql`DATE(${scheduleResults.createdAt})`)
+    .orderBy(asc(sql`DATE(${scheduleResults.createdAt})`));
+
+  // ========== 9. 最近活动 ==========
+  const recentSchedules = await db.query.scheduleResults.findMany({
+    orderBy: desc(scheduleResults.createdAt),
+    limit: 5,
+  });
+  
+  const recentStudentsList = await db.query.students.findMany({
+    orderBy: desc(students.createdAt),
+    limit: 5,
+  });
+
   return NextResponse.json({
     success: true,
     data: {
@@ -99,55 +277,178 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
         name: user.name,
         email: user.email,
       },
-      stats: {
-        totalStudents: studentCount.count,
-        totalTeachers: teacherCount.count,
-        totalCourses: courseCount.count,
-        totalSchedules: scheduleCount.count,
-        pendingSelections: pendingSelectionCount.count,
-        newStudentsThisWeek: newStudentsThisWeek.count,
-        todaySchedules: todaySchedules.count,
+      
+      // 核心指标
+      overview: {
+        totalStudents: studentCountResult[0].count,
+        totalTeachers: teacherCountResult[0].count,
+        totalCourses: courseCountResult[0].count,
+        totalSchedules: scheduleCountResult[0].count,
+        totalClassRecords: classRecordCountResult[0].count,
+        newStudentsThisWeek: newStudentsThisWeekResult[0].count,
+        newStudentsThisMonth: newStudentsThisMonthResult[0].count,
+        todaySchedules: todaySchedulesResult[0].count,
       },
+      
+      // 学生分析
+      studentAnalytics: {
+        stageDistribution,
+        majorDistribution,
+        countryDistribution,
+        lowHourCount: lowHourStudents.length,
+        exhaustedCount: exhaustedStudents.length,
+        lowHourStudents: lowHourStudents.slice(0, 5).map(s => ({
+          id: s.id,
+          name: s.name,
+          remaining: s.totalHours - s.usedHours,
+        })),
+        exhaustedStudents: exhaustedStudents.slice(0, 5).map(s => ({
+          id: s.id,
+          name: s.name,
+        })),
+      },
+      
+      // 导师分析
+      teacherAnalytics: {
+        typeDistribution: teacherTypeDistribution,
+        highLoadCount: highLoadTeachers.length,
+        lowLoadCount: lowLoadTeachers.length,
+        highLoadTeachers: highLoadTeachers.slice(0, 5),
+        lowLoadTeachers: lowLoadTeachers.slice(0, 5),
+        averageUtilization: teacherUtilization.length > 0
+          ? Math.round(teacherUtilization.reduce((sum, t) => sum + t.utilization, 0) / teacherUtilization.length)
+          : 0,
+      },
+      
+      // 课程分析
+      courseAnalytics: {
+        topCourses: topCourses.slice(0, 5).map(c => ({
+          id: c.id,
+          name: c.name,
+          category: c.category,
+          scheduleCount: (c as any).scheduleCount,
+        })),
+      },
+      
+      // 排课分析
+      scheduleAnalytics: {
+        timeSlotDistribution: Object.fromEntries(
+          timeSlotDistribution.map(t => [t.timeSlot, t.count])
+        ),
+        weekDayDistribution: Object.fromEntries(
+          weekDayDistribution.map(w => [w.weekDay, w.count])
+        ),
+        statusDistribution: Object.fromEntries(
+          scheduleStatusDistribution.map(s => [s.status, s.count])
+        ),
+      },
+      
+      // 财务概览
+      financial: {
+        totalHours,
+        usedHours,
+        remainingHours,
+        utilizationRate: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0,
+      },
+      
+      // 预警指标
+      alerts: {
+        pendingForms: pendingFormsResult[0].count,
+        pendingRecords: pendingRecordsResult[0].count,
+        lowHourStudents: lowHourStudents.length,
+        exhaustedStudents: exhaustedStudents.length,
+        inactiveStudents: inactiveStudents.length,
+      },
+      
+      // 趋势数据
+      trends: {
+        studentGrowth: studentGrowth.map(s => ({
+          date: s.date,
+          count: s.count,
+        })),
+        scheduleGrowth: scheduleGrowth.map(s => ({
+          date: s.date,
+          count: s.count,
+        })),
+      },
+      
+      // 最近活动
+      recentActivities: [
+        ...recentStudentsList.map(s => ({
+          type: 'student',
+          message: `新学生"${s.name}"完成入学`,
+          time: formatTimeAgo(s.createdAt),
+        })),
+        ...recentSchedules.slice(0, 3).map(sc => ({
+          type: 'schedule',
+          message: `排课创建成功`,
+          time: formatTimeAgo(sc.createdAt),
+        })),
+      ].slice(0, 8),
+      
       quickActions: [
         { label: '学生管理', href: '/students', icon: 'Users' },
         { label: '导师管理', href: '/teachers', icon: 'UserCheck' },
         { label: '课程管理', href: '/courses', icon: 'BookOpen' },
         { label: '排课管理', href: '/schedules', icon: 'Calendar' },
+        { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
         { label: '工作流管理', href: '/workflows', icon: 'Workflow' },
+        { label: '数据导入', href: '/import', icon: 'Upload' },
         { label: '系统设置', href: '/settings', icon: 'Settings' },
-      ],
-      recentActivities: [
-        { type: 'student', message: '新学生"张三"完成入学', time: '10分钟前' },
-        { type: 'schedule', message: '自动排课完成，共生成15条排课记录', time: '1小时前' },
-        { type: 'course', message: '新课程"F-GD 游戏设计基础"已添加', time: '2小时前' },
       ],
     },
   });
 }
 
-// 规划顾问仪表盘数据
+// ==================== 规划顾问仪表盘 ====================
+
 async function getConsultantDashboard(user: typeof users.$inferSelect) {
-  // 获取签约学生数
-  const [myStudentsCount] = await db.select({ count: count() })
-    .from(students)
-    .where(eq(students.consultantId, user.id));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
-  // 获取待处理的选课单数
-  const [pendingFormsCount] = await db.select({ count: count() })
-    .from(courseSelectionForms)
-    .where(and(
-      eq(courseSelectionForms.status, '已确认'),
-      sql`student_id IN (SELECT id FROM ${students} WHERE consultant_id = ${user.id})`
-    ));
+  // 获取签约学生
+  const myStudents = await db.query.students.findMany({
+    where: eq(students.consultantId, user.id),
+  });
   
-  // 获取今日预约（时间预留）
-  const [todayReservationsCount] = await db.select({ count: count() })
-    .from(timeAvailabilities)
-    .where(eq(timeAvailabilities.consultantId, user.id));
+  // 学生阶段分布
+  const stageDistribution = myStudents.reduce((acc, s) => {
+    acc[s.currentStage] = (acc[s.currentStage] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
   
-  // 获取待填时间表的学生数（示例）
-  const studentsWithoutTime = myStudentsCount.count; // 简化逻辑
+  // 低课时学生
+  const lowHourStudents = myStudents.filter(s => (s.totalHours - s.usedHours) < 10);
   
+  // 待处理选课单
+  const studentIds = myStudents.map(s => s.id);
+  const pendingForms = studentIds.length > 0 
+    ? await db.query.courseSelectionForms.findMany({
+        where: and(
+          inArray(courseSelectionForms.studentId, studentIds),
+          eq(courseSelectionForms.status, '已确认')
+        ),
+      })
+    : [];
+  
+  // 本周排课情况
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // 周一
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // 周日
+  
+  const weekSchedules = studentIds.length > 0
+    ? await db.query.scheduleResults.findMany({
+        where: and(
+          inArray(scheduleResults.studentId, studentIds),
+          gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
+        ),
+      })
+    : [];
+  
+  // 今日课程
+  const todaySchedules = weekSchedules.filter(s => s.date === today.toISOString().split('T')[0]);
+
   return NextResponse.json({
     success: true,
     data: {
@@ -157,54 +458,128 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
         name: user.name,
         email: user.email,
       },
-      stats: {
-        myStudents: myStudentsCount.count,
-        pendingForms: pendingFormsCount.count,
-        todayReservations: todayReservationsCount.count,
-        studentsWithoutTime: Math.floor(studentsWithoutTime * 0.3), // 30%待填
+      
+      overview: {
+        myStudents: myStudents.length,
+        pendingForms: pendingForms.length,
+        todaySchedules: todaySchedules.length,
+        weekSchedules: weekSchedules.length,
+        lowHourCount: lowHourStudents.length,
       },
+      
+      studentAnalytics: {
+        stageDistribution,
+        lowHourStudents: lowHourStudents.slice(0, 5).map(s => ({
+          id: s.id,
+          name: s.name,
+          remaining: s.totalHours - s.usedHours,
+          major: s.major,
+          stage: s.currentStage,
+        })),
+      },
+      
+      pendingFormsList: pendingForms.slice(0, 5).map(f => ({
+        id: f.id,
+        formId: f.formId,
+        status: f.status,
+      })),
+      
+      todaySchedule: todaySchedules.slice(0, 5).map(s => ({
+        id: s.id,
+        time: s.timeSlot,
+        status: s.status,
+      })),
+      
+      urgentTasks: [
+        ...(lowHourStudents.length > 0 ? [{
+          type: 'warning',
+          message: `${lowHourStudents.length}位学生课时不足，请及时跟进续费`,
+          priority: 'high',
+        }] : []),
+        ...(pendingForms.length > 0 ? [{
+          type: 'form',
+          message: `${pendingForms.length}份选课单待处理`,
+          priority: 'medium',
+        }] : []),
+      ],
+      
       quickActions: [
         { label: '我的学生', href: '/students?consultantId=' + user.id, icon: 'Users' },
         { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
         { label: '时间预留', href: '/availability?userId=' + user.id, icon: 'Clock' },
         { label: '排课管理', href: '/schedules', icon: 'Calendar' },
       ],
-      todaySchedule: [
-        { time: '10:00', student: '张三', purpose: '填写时间表', status: 'pending' },
-        { time: '14:00', student: '李四', purpose: '预约上课', status: 'confirmed' },
-        { time: '16:00', student: '王五', purpose: '选课指导', status: 'pending' },
-      ],
-      urgentTasks: [
-        { type: 'form', message: '3份选课单待审批', priority: 'high' },
-        { type: 'time', message: '5位学生尚未填写时间表', priority: 'medium' },
-      ],
     },
   });
 }
 
-// 导师仪表盘数据
+// ==================== 导师仪表盘 ====================
+
 async function getTeacherDashboard(user: typeof users.$inferSelect) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  
   // 获取导师信息
   const teacher = await db.query.teachers.findFirst({
     where: eq(teachers.id, user.teacherId || ''),
   });
   
-  const currentHours = teacher?.currentHours || 0;
-  const maxWeeklyHours = teacher?.maxWeeklyHours || 20;
+  if (!teacher) {
+    return NextResponse.json({
+      success: true,
+      data: {
+        role: user.role,
+        user: { id: user.id, name: user.name },
+        stats: { todayCourses: 0, weekHours: 0, maxWeekHours: 20, totalStudents: 0, pendingRecords: 0 },
+        quickActions: [],
+      },
+    });
+  }
   
-  // 获取今日课程数（简化）
-  const todayCoursesCount = 3; // 示例数据
+  // 本周课程
+  const weekSchedules = await db.query.scheduleResults.findMany({
+    where: and(
+      eq(scheduleResults.teacherId, teacher.id),
+      gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
+    ),
+  });
   
-  // 获取待填上课记录数
-  const [pendingRecordsCount] = await db.select({ count: count() })
+  // 今日课程
+  const todaySchedules = weekSchedules.filter(s => s.date === today.toISOString().split('T')[0]);
+  
+  // 统计本周课时
+  const weekHours = weekSchedules.reduce((sum, s) => sum + s.hours, 0);
+  
+  // 待填上课记录
+  const pendingRecordsCountResult = await db.select({ count: count() })
     .from(classRecords)
-    .where(eq(classRecords.teacherId, teacher?.id || ''));
+    .where(and(
+      eq(classRecords.teacherId, teacher.id),
+      eq(classRecords.attendanceStatus, '已排课')
+    ));
   
-  // 获取学生数
-  const [studentsCount] = await db.select({ count: count() })
-    .from(scheduleResults)
-    .where(eq(scheduleResults.teacherId, teacher?.id || ''));
+  // 我的学生（去重）
+  const uniqueStudentIds = [...new Set(weekSchedules.map(s => s.studentId))];
   
+  // 学生进度（简化版）
+  const myStudents = uniqueStudentIds.length > 0
+    ? await db.query.students.findMany({
+        where: inArray(students.id, uniqueStudentIds),
+        limit: 10,
+      })
+    : [];
+  
+  const studentProgress = myStudents.map(s => ({
+    id: s.id,
+    name: s.name,
+    progress: s.totalHours > 0 ? Math.round((s.usedHours / s.totalHours) * 100) : 0,
+    remaining: s.totalHours - s.usedHours,
+  }));
+
   return NextResponse.json({
     success: true,
     data: {
@@ -213,55 +588,99 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
         id: user.id,
         name: user.name,
         email: user.email,
-        teacherType: teacher?.teacherType,
+        teacherType: teacher.teacherType,
       },
-      stats: {
-        todayCourses: todayCoursesCount,
-        weekHours: currentHours,
-        maxWeekHours: maxWeeklyHours,
-        hourPercentage: Math.round((currentHours / maxWeeklyHours) * 100),
-        totalStudents: studentsCount.count,
-        pendingRecords: pendingRecordsCount.count,
+      
+      overview: {
+        todayCourses: todaySchedules.length,
+        weekCourses: weekSchedules.length,
+        weekHours,
+        maxWeekHours: teacher.maxWeeklyHours,
+        hourPercentage: teacher.maxWeeklyHours > 0 ? Math.round((weekHours / teacher.maxWeeklyHours) * 100) : 0,
+        totalStudents: uniqueStudentIds.length,
+        pendingRecords: pendingRecordsCountResult[0].count,
       },
+      
+      todayCourses: todaySchedules.map(s => ({
+        id: s.id,
+        time: s.timeSlot,
+        status: s.status,
+        hours: s.hours,
+      })),
+      
+      weekSchedule: weekSchedules.map(s => ({
+        id: s.id,
+        date: s.date,
+        weekDay: s.weekDay,
+        time: s.timeSlot,
+        status: s.status,
+      })),
+      
+      studentProgress,
+      
       quickActions: [
         { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock' },
         { label: '我的学生', href: '/teacher/students', icon: 'Users' },
         { label: '课程表', href: '/teacher/schedule', icon: 'Calendar' },
         { label: '上课记录', href: '/teacher/records', icon: 'FileText' },
-        { label: '统计分析', href: '/teacher/analytics', icon: 'TrendingUp' },
-      ],
-      todayCourses: [
-        { time: '10:00-12:00', student: '张三', course: 'F-GD 游戏设计基础', status: 'pending' },
-        { time: '14:00-16:00', student: '李四', course: 'P-GA 游戏策划进阶', status: 'confirmed' },
-        { time: '18:00-20:00', student: '王五', course: 'F-AN 游戏动画基础', status: 'pending' },
-      ],
-      studentProgress: [
-        { name: '张三', progress: 65 },
-        { name: '李四', progress: 80 },
-        { name: '王五', progress: 40 },
       ],
     },
   });
 }
 
-// 学生仪表盘数据
+// ==================== 学生仪表盘 ====================
+
 async function getStudentDashboard(user: typeof users.$inferSelect) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
   // 获取学生信息
   const student = await db.query.students.findFirst({
     where: eq(students.id, user.studentId || ''),
   });
   
-  const totalHours = student?.totalHours || 0;
-  const usedHours = student?.usedHours || 0;
+  if (!student) {
+    return NextResponse.json({
+      success: true,
+      data: {
+        role: '学生',
+        user: { id: user.id, name: user.name },
+        stats: { todayCourses: 0, totalHours: 0, usedHours: 0, remainingHours: 0, progressPercentage: 0 },
+        quickActions: [],
+      },
+    });
+  }
   
-  // 获取今日课程
-  const todayCoursesCount = 2; // 示例
+  // 今日课程
+  const todaySchedules = await db.query.scheduleResults.findMany({
+    where: and(
+      eq(scheduleResults.studentId, student.id),
+      eq(scheduleResults.date, today.toISOString().split('T')[0] as any)
+    ),
+  });
   
-  // 获取选课单数
-  const [formsCount] = await db.select({ count: count() })
-    .from(courseSelectionForms)
-    .where(eq(courseSelectionForms.studentId, student?.id || ''));
+  // 本周课程
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  const weekSchedules = await db.query.scheduleResults.findMany({
+    where: and(
+      eq(scheduleResults.studentId, student.id),
+      gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
+    ),
+  });
   
+  // 选课单
+  const selectionForms = await db.query.courseSelectionForms.findMany({
+    where: eq(courseSelectionForms.studentId, student.id),
+  });
+  
+  // 上课记录
+  const classRecordsList = await db.query.classRecords.findMany({
+    where: eq(classRecords.studentId, student.id),
+    orderBy: desc(classRecords.createdAt),
+    limit: 5,
+  });
+
   return NextResponse.json({
     success: true,
     data: {
@@ -270,34 +689,66 @@ async function getStudentDashboard(user: typeof users.$inferSelect) {
         id: user.id,
         name: user.name,
         email: user.email,
-        studentId: student?.studentId,
-        major: student?.major,
-        applicationCountry: student?.applicationCountry,
-        currentStage: student?.currentStage,
+        studentId: student.studentId,
+        major: student.major,
+        applicationCountry: student.applicationCountry,
+        currentStage: student.currentStage,
       },
-      stats: {
-        todayCourses: todayCoursesCount,
-        totalHours: totalHours,
-        usedHours: usedHours,
-        remainingHours: totalHours - usedHours,
-        progressPercentage: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0,
-        selectionForms: formsCount.count,
+      
+      overview: {
+        todayCourses: todaySchedules.length,
+        weekCourses: weekSchedules.length,
+        totalHours: student.totalHours,
+        usedHours: student.usedHours,
+        remainingHours: student.totalHours - student.usedHours,
+        progressPercentage: student.totalHours > 0 ? Math.round((student.usedHours / student.totalHours) * 100) : 0,
+        selectionForms: selectionForms.length,
       },
+      
+      todayCourses: todaySchedules.map(s => ({
+        id: s.id,
+        time: s.timeSlot,
+        status: s.status,
+        hours: s.hours,
+      })),
+      
+      weekSchedule: weekSchedules.map(s => ({
+        id: s.id,
+        date: s.date,
+        weekDay: s.weekDay,
+        time: s.timeSlot,
+        status: s.status,
+      })),
+      
+      recentClassRecords: classRecordsList.map(r => ({
+        id: r.id,
+        date: r.classDate,
+        status: r.attendanceStatus,
+      })),
+      
       quickActions: [
         { label: '我的时间表', href: '/time-table/student', icon: 'Clock' },
         { label: '我的课程', href: '/student/courses', icon: 'BookOpen' },
         { label: '课程表', href: '/student/schedule', icon: 'Calendar' },
         { label: '上课记录', href: '/student/records', icon: 'FileText' },
-        { label: '申请进度', href: '/student/applications', icon: 'TrendingUp' },
-      ],
-      todayCourses: [
-        { time: '10:00-12:00', course: 'F-GD 游戏设计基础', teacher: '王老师', status: 'confirmed' },
-        { time: '14:00-16:00', course: 'P-GA 游戏策划进阶', teacher: '李老师', status: 'pending' },
-      ],
-      upcomingDeadlines: [
-        { type: 'homework', message: '游戏设计作业截止', date: '明天' },
-        { type: 'application', message: 'RISD 申请截止', date: '7天后' },
       ],
     },
   });
+}
+
+// 辅助函数：格式化时间差
+function formatTimeAgo(date: Date | null): string {
+  if (!date) return '未知';
+  
+  const now = new Date();
+  const diff = now.getTime() - new Date(date).getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days < 7) return `${days}天前`;
+  return `${Math.floor(days / 7)}周前`;
 }

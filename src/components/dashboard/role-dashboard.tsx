@@ -2,7 +2,7 @@
  * 角色仪表盘组件
  * 
  * 根据用户角色显示不同的仪表盘内容：
- * - 管理员：全局概览
+ * - 管理员：运营数据看板（多维度分析）
  * - 规划顾问：签约学生、待处理事项
  * - 全职导师：课程、学生进度
  * - 兼职导师：简化版课程信息
@@ -30,12 +30,14 @@ import {
   Settings,
   Workflow,
   Loader2,
-  LogOut
+  LogOut,
+  Upload
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import AdminDashboard from './admin-dashboard';
 
 type UserRole = '管理员' | '规划顾问' | '全职导师' | '兼职导师' | '学生';
 
@@ -184,7 +186,8 @@ export default function RoleDashboard() {
   const renderDashboard = () => {
     switch (data?.role) {
       case '管理员':
-        return <AdminDashboardContent data={data} />;
+        // 管理员使用独立的运营仪表盘组件
+        return <AdminDashboard />;
       case '规划顾问':
         return <ConsultantDashboardContent data={data} />;
       case '全职导师':
@@ -196,6 +199,11 @@ export default function RoleDashboard() {
         return <DefaultDashboard />;
     }
   };
+
+  // 管理员仪表盘有自己的用户信息栏，其他角色显示通用用户信息栏
+  if (data?.role === '管理员') {
+    return <AdminDashboard />;
+  }
 
   return (
     <div className="space-y-6">
@@ -229,92 +237,6 @@ export default function RoleDashboard() {
       )}
       
       {renderDashboard()}
-    </div>
-  );
-}
-
-// 管理员仪表盘
-function AdminDashboardContent({ data }: { data: DashboardData }) {
-  const stats = data.stats;
-  
-  const statCards = [
-    { name: '学生总数', value: Number(stats.totalStudents ?? 0), icon: Users, color: 'from-orange-500 to-amber-500', link: '/students' },
-    { name: '导师总数', value: Number(stats.totalTeachers ?? 0), icon: GraduationCap, color: 'from-amber-500 to-yellow-500', link: '/teachers' },
-    { name: '课程总数', value: Number(stats.totalCourses ?? 0), icon: BookOpen, color: 'from-orange-400 to-orange-600', link: '/courses' },
-    { name: '本周新增学生', value: Number(stats.newStudentsThisWeek ?? 0), icon: TrendingUp, color: 'from-yellow-400 to-orange-500', link: '/students' },
-    { name: '今日排课', value: Number(stats.todaySchedules ?? 0), icon: Calendar, color: 'from-orange-500 to-red-500', link: '/schedules' },
-    { name: '待处理选课单', value: Number(stats.pendingSelections ?? 0), icon: FileText, color: 'from-amber-400 to-orange-500', link: '/selection-forms' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* 欢迎横幅 */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold mb-2">管理员工作台</h1>
-        <p className="text-white/90">全局概览 · 系统管理 · 数据统计</p>
-      </div>
-
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Link key={stat.name} href={stat.link}>
-              <Card className="group hover:shadow-lg transition-all cursor-pointer">
-                <CardContent className="p-4">
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <div className="text-sm text-gray-500">{stat.name}</div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* 快捷操作 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {data.quickActions.map((action) => {
-          const Icon = getIcon(action.icon);
-          return (
-            <Link key={action.label} href={action.href}>
-              <Card className="group hover:shadow-md transition-all cursor-pointer h-full">
-                <CardContent className="p-4 flex flex-col items-center text-center">
-                  <div className="w-10 h-10 rounded-lg bg-orange-50 group-hover:bg-orange-100 flex items-center justify-center mb-2">
-                    <Icon className="w-5 h-5 text-orange-500" />
-                  </div>
-                  <span className="text-sm font-medium">{action.label}</span>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* 最近活动 */}
-      {data.recentActivities && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">最近活动</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(data.recentActivities as Array<{type: string; message: string; time: string}>).map((activity, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.type === 'student' ? 'bg-orange-500' :
-                    activity.type === 'schedule' ? 'bg-amber-500' : 'bg-yellow-500'
-                  }`} />
-                  <span className="flex-1 text-sm">{activity.message}</span>
-                  <span className="text-xs text-gray-400">{activity.time}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
