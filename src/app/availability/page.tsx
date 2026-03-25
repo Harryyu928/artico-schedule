@@ -210,11 +210,33 @@ export default function AvailabilityPage() {
           return { ...slot, isAvailable: found?.isAvailable || false };
         }));
       } else {
-        initializeAvailability();
+        // 使用模拟数据演示
+        setAvailability(prev => prev.map(slot => {
+          // 模拟：工作日下午和晚上可用
+          if (['周一', '周二', '周三', '周四', '周五'].includes(slot.weekDay) && 
+              ['15:00', '18:00', '20:00'].includes(slot.timeSlot)) {
+            return { ...slot, isAvailable: true };
+          }
+          // 模拟：周末上午可用
+          if (['周六', '周日'].includes(slot.weekDay) && ['10:00', '13:00'].includes(slot.timeSlot)) {
+            return { ...slot, isAvailable: true };
+          }
+          return { ...slot, isAvailable: false };
+        }));
       }
     } catch (error) {
       console.error('加载时间设置失败:', error);
-      initializeAvailability();
+      // 使用模拟数据演示
+      setAvailability(prev => prev.map(slot => {
+        if (['周一', '周二', '周三', '周四', '周五'].includes(slot.weekDay) && 
+            ['15:00', '18:00', '20:00'].includes(slot.timeSlot)) {
+          return { ...slot, isAvailable: true };
+        }
+        if (['周六', '周日'].includes(slot.weekDay) && ['10:00', '13:00'].includes(slot.timeSlot)) {
+          return { ...slot, isAvailable: true };
+        }
+        return { ...slot, isAvailable: false };
+      }));
     }
   };
 
@@ -222,10 +244,84 @@ export default function AvailabilityPage() {
     try {
       const response = await fetch(`/api/time-blocks?teacherId=${selectedUserId}`);
       const data = await response.json();
-      setTimeBlocks(data.data || []);
+      if (data.data && data.data.length > 0) {
+        setTimeBlocks(data.data);
+      } else {
+        // 使用模拟数据演示月视图效果
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        
+        setTimeBlocks([
+          {
+            id: 'demo-block-1',
+            teacherId: selectedUserId,
+            startDate: format(today, 'yyyy-MM-dd'),
+            endDate: format(today, 'yyyy-MM-dd'),
+            startTime: null,
+            endTime: null,
+            isAllDay: true,
+            blockType: 'meeting',
+            reason: '教研会议（演示数据）',
+            status: 'confirmed',
+            affectedSchedules: [],
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'demo-block-2',
+            teacherId: selectedUserId,
+            startDate: format(nextWeek, 'yyyy-MM-dd'),
+            endDate: format(nextWeek, 'yyyy-MM-dd'),
+            startTime: '10:00',
+            endTime: '12:00',
+            isAllDay: false,
+            blockType: 'temporary_unavailable',
+            reason: '临时有事（演示数据）',
+            status: 'confirmed',
+            affectedSchedules: [],
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      }
     } catch (error) {
       console.error('加载时间调整失败:', error);
-      setTimeBlocks([]);
+      // 使用模拟数据演示月视图效果
+      const today = new Date();
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      setTimeBlocks([
+        {
+          id: 'demo-block-1',
+          teacherId: selectedUserId,
+          startDate: format(today, 'yyyy-MM-dd'),
+          endDate: format(today, 'yyyy-MM-dd'),
+          startTime: null,
+          endTime: null,
+          isAllDay: true,
+          blockType: 'meeting',
+          reason: '教研会议（演示数据）',
+          status: 'confirmed',
+          affectedSchedules: [],
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'demo-block-2',
+          teacherId: selectedUserId,
+          startDate: format(nextWeek, 'yyyy-MM-dd'),
+          endDate: format(nextWeek, 'yyyy-MM-dd'),
+          startTime: '10:00',
+          endTime: '12:00',
+          isAllDay: false,
+          blockType: 'temporary_unavailable',
+          reason: '临时有事（演示数据）',
+          status: 'confirmed',
+          affectedSchedules: [],
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     }
   };
 
