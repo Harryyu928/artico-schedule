@@ -205,6 +205,107 @@ export default function ClassRecordsPage() {
     attachments: [] as string[],
   });
 
+  // 文件上传状态
+  const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ key: string; url: string; name: string; size: number; type: string }>>([]);
+
+  // 处理文件选择
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files);
+    setUploadingFiles(prev => [...prev, ...newFiles]);
+
+    // 逐个上传文件
+    for (const file of newFiles) {
+      try {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('folder', 'class-records');
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          setUploadedFiles(prev => [...prev, {
+            key: result.data.key,
+            url: result.data.url,
+            name: result.data.fileName,
+            size: result.data.fileSize,
+            type: result.data.fileType,
+          }]);
+          setFormData(prev => ({
+            ...prev,
+            attachments: [...prev.attachments, result.data.key],
+          }));
+          setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+        } else {
+          throw new Error(result.error || '上传失败');
+        }
+      } catch (error) {
+        console.error('文件上传失败:', error);
+        toast({
+          title: '上传失败',
+          description: `${file.name} 上传失败，请重试`,
+          variant: 'destructive',
+        });
+      }
+    }
+
+    setUploadingFiles([]);
+    setUploadProgress({});
+  };
+
+  // 删除已上传的文件
+  const handleRemoveFile = async (index: number) => {
+    const file = uploadedFiles[index];
+    
+    try {
+      // 从对象存储删除
+      await fetch(`/api/upload?key=${encodeURIComponent(file.key)}`, {
+        method: 'DELETE',
+      });
+
+      // 更新状态
+      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+      setFormData(prev => ({
+        ...prev,
+        attachments: prev.attachments.filter((_, i) => i !== index),
+      }));
+    } catch (error) {
+      console.error('删除文件失败:', error);
+      toast({
+        title: '删除失败',
+        description: '文件删除失败，请重试',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 格式化文件大小
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // 获取文件图标
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return '🖼️';
+    if (type === 'application/pdf') return '📄';
+    if (type.includes('word') || type.includes('document')) return '📝';
+    if (type.includes('powerpoint') || type.includes('presentation')) return '📊';
+    return '📎';
+  };
+
   useEffect(() => {
     fetchRecords();
   }, []);
@@ -441,10 +542,14 @@ export default function ClassRecordsPage() {
       phaseContent: '',
       attachments: [],
     });
+    // 清空上传的文件
+    setUploadedFiles([]);
+    setUploadingFiles([]);
+    setUploadProgress({});
   };
 
   // 打开编辑对话框
-  const openEditDialog = (record: ClassRecord) => {
+  const openEditDialog = async (record: ClassRecord) => {
     setSelectedRecord(record);
     setFormData({
       studentId: record.studentId,
@@ -472,6 +577,35 @@ export default function ClassRecordsPage() {
       phaseContent: record.phaseContent || '',
       attachments: record.attachments || [],
     });
+    
+    // 加载已有附件的签名URL
+    if (record.attachments && record.attachments.length > 0) {
+      const files = await Promise.all(
+        record.attachments.map(async (key) => {
+          try {
+            const response = await fetch(`/api/upload?key=${encodeURIComponent(key)}`);
+            const result = await response.json();
+            if (result.success) {
+              const name = key.split('/').pop() || key;
+              return {
+                key,
+                url: result.data.url,
+                name: name.replace(/^\d+_/, ''),
+                size: 0,
+                type: name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+              };
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      setUploadedFiles(files.filter(Boolean) as typeof uploadedFiles);
+    } else {
+      setUploadedFiles([]);
+    }
+    
     setEditDialogOpen(true);
   };
 
@@ -861,14 +995,87 @@ AP 学生作品赏析
         <h3 className="font-semibold text-lg flex items-center gap-2">
           <Paperclip className="w-5 h-5 text-orange-500" />
           附件
+          <span className="text-sm font-normal text-gray-500 ml-2">
+            支持上传上课截图、作业要求等文件
+          </span>
         </h3>
-        <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
-          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-gray-500 mb-2">拖拽文件到此处或点击上传</p>
-          <p className="text-gray-400 text-sm">支持图片、PDF、视频等格式</p>
-          <Button variant="outline" className="mt-4">
-            选择文件
-          </Button>
+        
+        {/* 上传区域 */}
+        <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-orange-300 transition-colors cursor-pointer relative">
+          <input
+            type="file"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.txt"
+            onChange={handleFileSelect}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-600 font-medium mb-1">点击或拖拽文件到此处上传</p>
+          <p className="text-gray-400 text-sm">支持图片 (JPG/PNG/GIF)、PDF、Word、PPT 等格式，单个文件最大 10MB</p>
+        </div>
+
+        {/* 上传中的文件 */}
+        {uploadingFiles.length > 0 && (
+          <div className="space-y-2">
+            {uploadingFiles.map((file) => (
+              <div key={file.name} className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
+                <div className="animate-spin w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full" />
+                <span className="text-sm text-gray-600">{file.name}</span>
+                {uploadProgress[file.name] !== undefined && (
+                  <span className="text-xs text-gray-400">{uploadProgress[file.name]}%</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 已上传的文件列表 */}
+        {uploadedFiles.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-sm text-gray-600">已上传文件 ({uploadedFiles.length})</Label>
+            {uploadedFiles.map((file, index) => (
+              <div key={file.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{getFileIcon(file.type)}</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                    <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(file.url, '_blank')}
+                    className="text-orange-500 hover:text-orange-600"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveFile(index)}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 提示信息 */}
+        <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-sm">
+          <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="text-blue-700">
+            <p className="font-medium mb-1">上传提示</p>
+            <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+              <li>上传的文件将与上课记录关联，方便后续查阅</li>
+              <li>支持批量上传，可同时选择多个文件</li>
+              <li>附件将保存在云端，学生签字时可查看</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -1226,6 +1433,55 @@ AP 学生作品赏析
                   <span className="text-gray-500 text-sm">下次课计划</span>
                   <div className="mt-1 p-3 bg-purple-50 rounded-lg text-sm">
                     {selectedRecord.nextClassPlan}
+                  </div>
+                </div>
+              )}
+
+              {/* 附件列表 */}
+              {selectedRecord.attachments && selectedRecord.attachments.length > 0 && (
+                <div>
+                  <span className="text-gray-500 text-sm flex items-center gap-1">
+                    <Paperclip className="w-4 h-4" />
+                    附件 ({selectedRecord.attachments.length})
+                  </span>
+                  <div className="mt-2 space-y-2">
+                    {selectedRecord.attachments.map((key: string, index: number) => {
+                      const fileName = key.split('/').pop() || key;
+                      const displayName = fileName.replace(/^\d+_/, '');
+                      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                      const isPdf = fileName.endsWith('.pdf');
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              {isImage ? '🖼️' : isPdf ? '📄' : '📎'}
+                            </span>
+                            <span className="text-sm text-gray-700 truncate max-w-[200px]">
+                              {displayName}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/upload?key=${encodeURIComponent(key)}`);
+                                const result = await response.json();
+                                if (result.success) {
+                                  window.open(result.data.url, '_blank');
+                                }
+                              } catch (error) {
+                                console.error('获取文件URL失败:', error);
+                              }
+                            }}
+                            className="text-orange-500 hover:text-orange-600"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
