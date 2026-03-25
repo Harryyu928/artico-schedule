@@ -1,23 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// 模拟任务数据存储
-const tasksData: Record<string, any> = {
-  'task-2-1': {
-    id: 'task-2-1',
-    instanceId: 'wi-001',
-    stageId: 'stage-2',
-    name: '创建选课单',
-    status: 'in_progress',
-    assigneeRole: '管理员',
-    assigneeId: 'admin-1',
-    checklist: [
-      { id: 'cl-1', text: '选择学生', completed: true },
-      { id: 'cl-2', text: '设置预计日期', completed: false },
-      { id: 'cl-3', text: '填写学习目标', completed: false },
-    ],
-    notes: '',
-  },
-};
+import { db } from '@/db';
+import { 
+  workflowInstances,
+  workflowTaskInstances,
+} from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * GET /api/workflows/tasks/[taskId]
@@ -30,7 +17,9 @@ export async function GET(
   const { taskId } = await params;
 
   try {
-    const task = tasksData[taskId];
+    const task = await db.query.workflowTaskInstances.findFirst({
+      where: eq(workflowTaskInstances.id, taskId),
+    });
     
     if (!task) {
       return NextResponse.json(
@@ -61,7 +50,11 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const task = tasksData[taskId];
+    
+    // 查询任务
+    const task = await db.query.workflowTaskInstances.findFirst({
+      where: eq(workflowTaskInstances.id, taskId),
+    });
     
     if (!task) {
       return NextResponse.json(
@@ -70,19 +63,49 @@ export async function PUT(
       );
     }
 
-    // 更新任务
-    const updatedTask = {
-      ...task,
-      ...body,
-      updatedAt: new Date().toISOString(),
+    // 准备更新数据
+    const updateData: any = {
+      updatedAt: new Date(),
     };
-
+    
+    if (body.status) {
+      updateData.status = body.status;
+    }
+    if (body.assigneeId !== undefined) {
+      updateData.assigneeId = body.assigneeId;
+    }
+    if (body.notes !== undefined) {
+      updateData.notes = body.notes;
+    }
+    if (body.checklist !== undefined) {
+      updateData.checklist = body.checklist;
+      // 更新清单完成数
+      const completedCount = body.checklist.filter((item: any) => item.completed).length;
+      updateData.completedChecklist = completedCount;
+    }
+    
     // 如果状态变为completed，记录完成时间
     if (body.status === 'completed' && task.status !== 'completed') {
-      updatedTask.completedAt = new Date().toISOString();
+      updateData.completedAt = new Date();
+    }
+    
+    // 如果状态变为in_progress，记录开始时间
+    if (body.status === 'in_progress' && !task.startedAt) {
+      updateData.startedAt = new Date();
     }
 
-    tasksData[taskId] = updatedTask;
+    // 更新任务
+    await db.update(workflowTaskInstances)
+      .set(updateData)
+      .where(eq(workflowTaskInstances.id, taskId));
+
+    // 更新工作流实例的进度
+    await updateWorkflowProgress(task.instanceId);
+
+    // 重新查询更新后的任务
+    const updatedTask = await db.query.workflowTaskInstances.findFirst({
+      where: eq(workflowTaskInstances.id, taskId),
+    });
 
     return NextResponse.json(updatedTask);
   } catch (error) {
@@ -106,9 +129,12 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { checklistItemId, completed } = body;
+    const { checklistItemId, completed, checklistItemIndex } = body;
     
-    const task = tasksData[taskId];
+    // 查询任务
+    const task = await db.query.workflowTaskInstances.findFirst({
+      where: eq(workflowTaskInstances.id, taskId),
+    });
     
     if (!task) {
       return NextResponse.json(
@@ -118,26 +144,48 @@ export async function PATCH(
     }
 
     // 更新清单项
-    if (task.checklist && Array.isArray(task.checklist)) {
-      const checklistItem = task.checklist.find((item: any) => item.id === checklistItemId);
-      if (checklistItem) {
-        checklistItem.completed = completed;
-      }
-
-      // 计算清单完成进度
-      const completedCount = task.checklist.filter((item: any) => item.completed).length;
-      const totalCount = task.checklist.length;
-      
-      // 如果全部完成，自动标记任务为completed
-      if (completedCount === totalCount && task.status !== 'completed') {
-        task.status = 'completed';
-        task.completedAt = new Date().toISOString();
+    const checklist = task.checklist as { text: string; completed: boolean }[] || [];
+    
+    // 支持通过index或id更新
+    if (checklistItemIndex !== undefined && checklistItemIndex < checklist.length) {
+      checklist[checklistItemIndex].completed = completed;
+    } else if (checklistItemId !== undefined) {
+      const item = checklist.find((_: any, index: number) => index === checklistItemId);
+      if (item) {
+        item.completed = completed;
       }
     }
 
-    task.updatedAt = new Date().toISOString();
+    // 计算清单完成进度
+    const completedCount = checklist.filter((item: any) => item.completed).length;
+    const totalCount = checklist.length;
+    
+    const updateData: any = {
+      checklist,
+      completedChecklist: completedCount,
+      updatedAt: new Date(),
+    };
+    
+    // 如果全部完成，自动标记任务为completed
+    if (completedCount === totalCount && totalCount > 0 && task.status !== 'completed') {
+      updateData.status = 'completed';
+      updateData.completedAt = new Date();
+    }
 
-    return NextResponse.json(task);
+    // 更新任务
+    await db.update(workflowTaskInstances)
+      .set(updateData)
+      .where(eq(workflowTaskInstances.id, taskId));
+
+    // 更新工作流实例的进度
+    await updateWorkflowProgress(task.instanceId);
+
+    // 重新查询更新后的任务
+    const updatedTask = await db.query.workflowTaskInstances.findFirst({
+      where: eq(workflowTaskInstances.id, taskId),
+    });
+
+    return NextResponse.json(updatedTask);
   } catch (error) {
     console.error('更新任务清单失败:', error);
     return NextResponse.json(
@@ -145,4 +193,56 @@ export async function PATCH(
       { status: 500 }
     );
   }
+}
+
+/**
+ * 更新工作流实例的进度
+ */
+async function updateWorkflowProgress(instanceId: string) {
+  try {
+    // 获取该实例的所有任务
+    const tasks = await db.select()
+      .from(workflowTaskInstances)
+      .where(eq(workflowTaskInstances.instanceId, instanceId));
+    
+    if (tasks.length === 0) return;
+    
+    const completedTasks = tasks.filter(t => t.status === 'completed').length;
+    const totalTasks = tasks.length;
+    const progress = Math.round((completedTasks / totalTasks) * 100);
+    
+    // 更新工作流实例
+    const updateData: any = {
+      completedTasks,
+      progress,
+      updatedAt: new Date(),
+    };
+    
+    // 如果全部完成，标记为completed
+    if (completedTasks === totalTasks) {
+      updateData.status = 'completed';
+      updateData.completedAt = new Date();
+    } else if (completedTasks > 0) {
+      updateData.status = 'in_progress';
+      if (!await hasStartedAt(instanceId)) {
+        updateData.startedAt = new Date();
+      }
+    }
+    
+    await db.update(workflowInstances)
+      .set(updateData)
+      .where(eq(workflowInstances.id, instanceId));
+  } catch (error) {
+    console.error('更新工作流进度失败:', error);
+  }
+}
+
+/**
+ * 检查工作流实例是否已有开始时间
+ */
+async function hasStartedAt(instanceId: string): Promise<boolean> {
+  const instance = await db.query.workflowInstances.findFirst({
+    where: eq(workflowInstances.id, instanceId),
+  });
+  return !!instance?.startedAt;
 }

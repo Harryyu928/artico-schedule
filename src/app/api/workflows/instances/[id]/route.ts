@@ -1,98 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// 模拟工作流实例数据
-const workflowInstancesData: Record<string, any> = {
-  'wi-001': {
-    id: 'wi-001',
-    workflowId: 'wf-student-onboarding',
-    workflowName: '学生入学流程',
-    entityType: 'student',
-    entityId: 'student-1',
-    entityName: '张三',
-    currentStageId: 'stage-2',
-    currentStageName: '选课规划',
-    status: 'in_progress',
-    progress: 40,
-    totalTasks: 8,
-    completedTasks: 3,
-    startedAt: '2026-03-20T10:00:00Z',
-    dueDate: '2026-04-01',
-    stages: [
-      { 
-        id: 'stage-1', 
-        stageOrder: 1,
-        name: '入学登记', 
-        color: '#3B82F6',
-        icon: 'ClipboardList',
-        status: 'completed', 
-        completedTasks: 3, 
-        totalTasks: 3,
-        tasks: [
-          { id: 'task-1-1', name: '录入学生基本信息', status: 'completed', assigneeRole: '管理员', completedAt: '2026-03-20T10:30:00Z' },
-          { id: 'task-1-2', name: '确认缴费信息', status: 'completed', assigneeRole: '管理员', completedAt: '2026-03-20T11:00:00Z' },
-          { id: 'task-1-3', name: '分配咨询导师', status: 'completed', assigneeRole: '管理员', completedAt: '2026-03-20T14:00:00Z' },
-        ]
-      },
-      { 
-        id: 'stage-2', 
-        stageOrder: 2,
-        name: '选课规划', 
-        color: '#F59E0B',
-        icon: 'FileText',
-        status: 'in_progress', 
-        completedTasks: 0, 
-        totalTasks: 4,
-        tasks: [
-          { id: 'task-2-1', name: '创建选课单', status: 'in_progress', assigneeRole: '管理员', assigneeId: 'admin-1' },
-          { id: 'task-2-2', name: '添加目标院校', status: 'pending', assigneeRole: '管理员' },
-          { id: 'task-2-3', name: '规划课程明细', status: 'pending', assigneeRole: '导师' },
-          { id: 'task-2-4', name: '确认选课单', status: 'pending', assigneeRole: '管理员' },
-        ]
-      },
-      { 
-        id: 'stage-3', 
-        stageOrder: 3,
-        name: '时间设置', 
-        color: '#8B5CF6',
-        icon: 'Clock',
-        status: 'pending', 
-        completedTasks: 0, 
-        totalTasks: 2,
-        tasks: [
-          { id: 'task-3-1', name: '设置学生可用时间', status: 'pending', assigneeRole: '管理员' },
-          { id: 'task-3-2', name: '设置导师可用时间', status: 'pending', assigneeRole: '导师' },
-        ]
-      },
-      { 
-        id: 'stage-4', 
-        stageOrder: 4,
-        name: '排课安排', 
-        color: '#EC4899',
-        icon: 'Calendar',
-        status: 'pending', 
-        completedTasks: 0, 
-        totalTasks: 2,
-        tasks: [
-          { id: 'task-4-1', name: '执行自动排课', status: 'pending', assigneeRole: '管理员' },
-          { id: 'task-4-2', name: '确认排课结果', status: 'pending', assigneeRole: '导师' },
-        ]
-      },
-      { 
-        id: 'stage-5', 
-        stageOrder: 5,
-        name: '开始上课', 
-        color: '#10B981',
-        icon: 'PlayCircle',
-        status: 'pending', 
-        completedTasks: 0, 
-        totalTasks: 1,
-        tasks: [
-          { id: 'task-5-1', name: '开始第一节课', status: 'pending', assigneeRole: '导师' },
-        ]
-      },
-    ],
-  },
-};
+import { db } from '@/db';
+import { 
+  workflowDefinitions, 
+  workflowStageDefinitions,
+  workflowInstances,
+  workflowTaskInstances,
+  students,
+  courseSelectionForms,
+} from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * GET /api/workflows/instances/[id]
@@ -105,7 +21,10 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const instance = workflowInstancesData[id];
+    // 查询工作流实例
+    const instance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, id),
+    });
     
     if (!instance) {
       return NextResponse.json(
@@ -114,7 +33,93 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(instance);
+    // 获取工作流定义
+    const workflowDef = await db.query.workflowDefinitions.findFirst({
+      where: eq(workflowDefinitions.id, instance.workflowId),
+    });
+
+    // 获取所有阶段定义
+    const stageDefs = await db.select()
+      .from(workflowStageDefinitions)
+      .where(eq(workflowStageDefinitions.workflowId, instance.workflowId))
+      .orderBy(workflowStageDefinitions.stageOrder);
+    
+    // 获取每个阶段的任务实例
+    const stages = await Promise.all(
+      stageDefs.map(async (stageDef) => {
+        const tasks = await db.select()
+          .from(workflowTaskInstances)
+          .where(and(
+            eq(workflowTaskInstances.instanceId, instance.id),
+            eq(workflowTaskInstances.stageId, stageDef.id)
+          ));
+        
+        const completedTasks = tasks.filter(t => t.status === 'completed').length;
+        
+        // 计算阶段状态
+        let stageStatus = 'pending';
+        if (tasks.length > 0) {
+          if (completedTasks === tasks.length) {
+            stageStatus = 'completed';
+          } else if (tasks.some(t => t.status === 'in_progress')) {
+            stageStatus = 'in_progress';
+          }
+        }
+        
+        return {
+          id: stageDef.id,
+          stageOrder: stageDef.stageOrder,
+          name: stageDef.name,
+          color: stageDef.color,
+          icon: stageDef.icon,
+          status: stageStatus,
+          completedTasks,
+          totalTasks: tasks.length,
+          tasks: tasks.map(t => ({
+            id: t.id,
+            name: t.name,
+            status: t.status,
+            assigneeRole: t.assigneeRole,
+            assigneeId: t.assigneeId,
+            priority: t.priority,
+            completedAt: t.completedAt,
+            checklist: t.checklist,
+          })),
+        };
+      })
+    );
+
+    // 获取实体名称
+    let entityName = instance.entityId;
+    if (instance.entityType === 'student') {
+      const student = await db.query.students.findFirst({
+        where: eq(students.id, instance.entityId),
+      });
+      if (student) {
+        entityName = student.name;
+      }
+    } else if (instance.entityType === 'selection_form') {
+      const form = await db.query.courseSelectionForms.findFirst({
+        where: eq(courseSelectionForms.id, instance.entityId),
+      });
+      if (form) {
+        const student = await db.query.students.findFirst({
+          where: eq(students.id, form.studentId),
+        });
+        entityName = student ? `${student.name}的选课单` : `选课单 ${form.formId}`;
+      }
+    }
+
+    // 获取当前阶段名称
+    const currentStage = stageDefs.find(s => s.id === instance.currentStageId);
+
+    return NextResponse.json({
+      ...instance,
+      workflowName: workflowDef?.name || '',
+      entityName,
+      currentStageName: currentStage?.name || '',
+      stages,
+    });
   } catch (error) {
     console.error('获取工作流实例详情失败:', error);
     return NextResponse.json(
@@ -136,7 +141,11 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const instance = workflowInstancesData[id];
+    
+    // 查询工作流实例
+    const instance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, id),
+    });
     
     if (!instance) {
       return NextResponse.json(
@@ -146,13 +155,42 @@ export async function PUT(
     }
 
     // 更新实例
-    const updatedInstance = {
-      ...instance,
-      ...body,
-      updatedAt: new Date().toISOString(),
+    const updateData: any = {
+      updatedAt: new Date(),
     };
+    
+    if (body.status) {
+      updateData.status = body.status;
+    }
+    if (body.currentStageId) {
+      updateData.currentStageId = body.currentStageId;
+    }
+    if (body.progress !== undefined) {
+      updateData.progress = body.progress;
+    }
+    if (body.completedTasks !== undefined) {
+      updateData.completedTasks = body.completedTasks;
+    }
+    if (body.notes !== undefined) {
+      updateData.notes = body.notes;
+    }
+    if (body.dueDate !== undefined) {
+      updateData.dueDate = body.dueDate;
+    }
+    
+    // 如果状态变为completed，设置完成时间
+    if (body.status === 'completed') {
+      updateData.completedAt = new Date();
+    }
 
-    workflowInstancesData[id] = updatedInstance;
+    await db.update(workflowInstances)
+      .set(updateData)
+      .where(eq(workflowInstances.id, id));
+
+    // 重新查询更新后的实例
+    const updatedInstance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, id),
+    });
 
     return NextResponse.json(updatedInstance);
   } catch (error) {

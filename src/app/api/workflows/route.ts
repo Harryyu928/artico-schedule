@@ -1,156 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/db';
+import { 
+  workflowDefinitions, 
+  workflowStageDefinitions,
+  workflowTaskTemplates,
+  workflowInstances,
+  workflowTaskInstances,
+  students
+} from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-
-// 工作流定义的模拟数据
-const workflowDefinitionsData = [
-  {
-    id: 'wf-student-onboarding',
-    type: 'student_onboarding',
-    name: '学生入学流程',
-    description: '从学生入学到开始上课的完整流程',
-    isActive: true,
-    stages: [
-      { id: 'stage-1', stageOrder: 1, name: '入学登记', color: '#3B82F6', icon: 'ClipboardList', isRequired: true, tasks: [
-        { name: '录入学生基本信息', assigneeRole: '管理员' },
-        { name: '确认缴费信息', assigneeRole: '管理员' },
-        { name: '分配咨询导师', assigneeRole: '管理员' },
-      ]},
-      { id: 'stage-2', stageOrder: 2, name: '选课规划', color: '#F59E0B', icon: 'FileText', isRequired: true, tasks: [
-        { name: '创建选课单', assigneeRole: '管理员' },
-        { name: '添加目标院校', assigneeRole: '管理员' },
-        { name: '规划课程明细', assigneeRole: '导师' },
-        { name: '确认选课单', assigneeRole: '管理员' },
-      ]},
-      { id: 'stage-3', stageOrder: 3, name: '时间设置', color: '#8B5CF6', icon: 'Clock', isRequired: true, tasks: [
-        { name: '设置学生可用时间', assigneeRole: '管理员' },
-        { name: '设置导师可用时间', assigneeRole: '导师' },
-      ]},
-      { id: 'stage-4', stageOrder: 4, name: '排课安排', color: '#EC4899', icon: 'Calendar', isRequired: true, tasks: [
-        { name: '执行自动排课', assigneeRole: '管理员' },
-        { name: '确认排课结果', assigneeRole: '导师' },
-      ]},
-      { id: 'stage-5', stageOrder: 5, name: '开始上课', color: '#10B981', icon: 'PlayCircle', isRequired: true, tasks: [
-        { name: '开始第一节课', assigneeRole: '导师' },
-      ]},
-    ],
-  },
-  {
-    id: 'wf-selection-form',
-    type: 'selection_form',
-    name: '选课单处理流程',
-    description: '选课单从创建到完成的流程',
-    isActive: true,
-    stages: [
-      { id: 'stage-1', stageOrder: 1, name: '草稿', color: '#9CA3AF', icon: 'FileEdit', isRequired: true, tasks: [] },
-      { id: 'stage-2', stageOrder: 2, name: '已确认', color: '#3B82F6', icon: 'CheckCircle', isRequired: true, tasks: [] },
-      { id: 'stage-3', stageOrder: 3, name: '执行中', color: '#F59E0B', icon: 'Loader', isRequired: true, tasks: [] },
-      { id: 'stage-4', stageOrder: 4, name: '已完成', color: '#10B981', icon: 'CheckCircle2', isRequired: true, tasks: [] },
-    ],
-  },
-  {
-    id: 'wf-course-progress',
-    type: 'course_progress',
-    name: '课程进度流程',
-    description: '单个课程从开始到完成的流程',
-    isActive: true,
-    stages: [
-      { id: 'stage-1', stageOrder: 1, name: '待排课', color: '#9CA3AF', icon: 'Clock', isRequired: true, tasks: [] },
-      { id: 'stage-2', stageOrder: 2, name: '排课中', color: '#3B82F6', icon: 'Calendar', isRequired: true, tasks: [] },
-      { id: 'stage-3', stageOrder: 3, name: '上课中', color: '#F59E0B', icon: 'PlayCircle', isRequired: true, tasks: [] },
-      { id: 'stage-4', stageOrder: 4, name: '已完成', color: '#10B981', icon: 'CheckCircle2', isRequired: true, tasks: [] },
-    ],
-  },
-  {
-    id: 'wf-application-tracking',
-    type: 'application_tracking',
-    name: '申请跟踪流程',
-    description: '学生申请院校的跟踪流程',
-    isActive: true,
-    stages: [
-      { id: 'stage-1', stageOrder: 1, name: '准备中', color: '#9CA3AF', icon: 'FileText', isRequired: true, tasks: [] },
-      { id: 'stage-2', stageOrder: 2, name: '已申请', color: '#3B82F6', icon: 'Send', isRequired: true, tasks: [] },
-      { id: 'stage-3', stageOrder: 3, name: '等待结果', color: '#F59E0B', icon: 'Hourglass', isRequired: true, tasks: [] },
-      { id: 'stage-4', stageOrder: 4, name: '已录取', color: '#10B981', icon: 'Award', isRequired: false, tasks: [] },
-      { id: 'stage-5', stageOrder: 5, name: '已拒绝', color: '#EF4444', icon: 'XCircle', isRequired: false, tasks: [] },
-    ],
-  },
-];
-
-// 模拟工作流实例数据
-const workflowInstancesData = [
-  {
-    id: 'wi-001',
-    workflowId: 'wf-student-onboarding',
-    workflowName: '学生入学流程',
-    entityType: 'student',
-    entityId: 'student-1',
-    entityName: '张三',
-    currentStageId: 'stage-2',
-    currentStageName: '选课规划',
-    status: 'in_progress',
-    progress: 40,
-    totalTasks: 8,
-    completedTasks: 3,
-    startedAt: '2026-03-20T10:00:00Z',
-    dueDate: '2026-04-01',
-    stages: [
-      { id: 'stage-1', name: '入学登记', status: 'completed', completedTasks: 3, totalTasks: 3 },
-      { id: 'stage-2', name: '选课规划', status: 'in_progress', completedTasks: 0, totalTasks: 4 },
-      { id: 'stage-3', name: '时间设置', status: 'pending', completedTasks: 0, totalTasks: 2 },
-      { id: 'stage-4', name: '排课安排', status: 'pending', completedTasks: 0, totalTasks: 2 },
-      { id: 'stage-5', name: '开始上课', status: 'pending', completedTasks: 0, totalTasks: 1 },
-    ],
-  },
-  {
-    id: 'wi-002',
-    workflowId: 'wf-student-onboarding',
-    workflowName: '学生入学流程',
-    entityType: 'student',
-    entityId: 'student-2',
-    entityName: '李四',
-    currentStageId: 'stage-4',
-    currentStageName: '排课安排',
-    status: 'in_progress',
-    progress: 75,
-    totalTasks: 8,
-    completedTasks: 6,
-    startedAt: '2026-03-15T10:00:00Z',
-    dueDate: '2026-03-25',
-    stages: [
-      { id: 'stage-1', name: '入学登记', status: 'completed', completedTasks: 3, totalTasks: 3 },
-      { id: 'stage-2', name: '选课规划', status: 'completed', completedTasks: 4, totalTasks: 4 },
-      { id: 'stage-3', name: '时间设置', status: 'completed', completedTasks: 2, totalTasks: 2 },
-      { id: 'stage-4', name: '排课安排', status: 'in_progress', completedTasks: 1, totalTasks: 2 },
-      { id: 'stage-5', name: '开始上课', status: 'pending', completedTasks: 0, totalTasks: 1 },
-    ],
-  },
-  {
-    id: 'wi-003',
-    workflowId: 'wf-student-onboarding',
-    workflowName: '学生入学流程',
-    entityType: 'student',
-    entityId: '6da98a0c-cad6-46aa-8f86-cb9cfd90a6f1',
-    entityName: '测试学生4',
-    currentStageId: 'stage-1',
-    currentStageName: '入学登记',
-    status: 'pending',
-    progress: 0,
-    totalTasks: 8,
-    completedTasks: 0,
-    startedAt: '2026-03-24T10:00:00Z',
-    stages: [
-      { id: 'stage-1', name: '入学登记', status: 'pending', completedTasks: 0, totalTasks: 3 },
-      { id: 'stage-2', name: '选课规划', status: 'pending', completedTasks: 0, totalTasks: 4 },
-      { id: 'stage-3', name: '时间设置', status: 'pending', completedTasks: 0, totalTasks: 2 },
-      { id: 'stage-4', name: '排课安排', status: 'pending', completedTasks: 0, totalTasks: 2 },
-      { id: 'stage-5', name: '开始上课', status: 'pending', completedTasks: 0, totalTasks: 1 },
-    ],
-  },
-];
 
 /**
  * GET /api/workflows
- * 获取工作流定义列表
+ * 获取工作流定义列表和实例
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -158,16 +21,115 @@ export async function GET(request: NextRequest) {
   const includeInstances = searchParams.get('includeInstances') === 'true';
 
   try {
-    let definitions = workflowDefinitionsData;
+    // 查询工作流定义
+    let definitionsQuery = db.select().from(workflowDefinitions);
     
-    if (type) {
-      definitions = definitions.filter(d => d.type === type);
+    // 获取所有定义
+    const definitions = await definitionsQuery;
+    
+    // 获取每个定义的阶段
+    const definitionsWithStages = await Promise.all(
+      definitions.map(async (def) => {
+        const stages = await db.select()
+          .from(workflowStageDefinitions)
+          .where(eq(workflowStageDefinitions.workflowId, def.id))
+          .orderBy(workflowStageDefinitions.stageOrder);
+        
+        // 获取每个阶段的任务模板
+        const stagesWithTasks = await Promise.all(
+          stages.map(async (stage) => {
+            const tasks = await db.select()
+              .from(workflowTaskTemplates)
+              .where(eq(workflowTaskTemplates.stageId, stage.id))
+              .orderBy(workflowTaskTemplates.taskOrder);
+            
+            return {
+              ...stage,
+              tasks: tasks.map(t => ({
+                name: t.name,
+                assigneeRole: t.assigneeRole,
+              })),
+            };
+          })
+        );
+        
+        return {
+          ...def,
+          stages: stagesWithTasks,
+        };
+      })
+    );
+    
+    let result: any = { definitions: definitionsWithStages };
+    
+    // 如果需要，获取实例
+    if (includeInstances) {
+      const instances = await db.select()
+        .from(workflowInstances)
+        .orderBy(desc(workflowInstances.createdAt));
+      
+      // 获取每个实例的阶段信息
+      const instancesWithStages = await Promise.all(
+        instances.map(async (instance) => {
+          // 获取该工作流定义的所有阶段
+          const stages = await db.select()
+            .from(workflowStageDefinitions)
+            .where(eq(workflowStageDefinitions.workflowId, instance.workflowId))
+            .orderBy(workflowStageDefinitions.stageOrder);
+          
+          // 获取每个阶段的任务实例
+          const stagesWithTasks = await Promise.all(
+            stages.map(async (stage) => {
+              const tasks = await db.select()
+                .from(workflowTaskInstances)
+                .where(and(
+                  eq(workflowTaskInstances.instanceId, instance.id),
+                  eq(workflowTaskInstances.stageId, stage.id)
+                ));
+              
+              const completedTasks = tasks.filter(t => t.status === 'completed').length;
+              
+              return {
+                id: stage.id,
+                name: stage.name,
+                color: stage.color,
+                icon: stage.icon,
+                status: tasks.length > 0 
+                  ? (completedTasks === tasks.length ? 'completed' : 
+                     tasks.some(t => t.status === 'in_progress') ? 'in_progress' : 'pending')
+                  : 'pending',
+                completedTasks,
+                totalTasks: tasks.length,
+                tasks,
+              };
+            })
+          );
+          
+          // 获取实体名称
+          let entityName = instance.entityId;
+          if (instance.entityType === 'student') {
+            const student = await db.query.students.findFirst({
+              where: eq(students.id, instance.entityId),
+            });
+            if (student) {
+              entityName = student.name;
+            }
+          }
+          
+          // 获取当前阶段名称
+          const currentStage = stages.find(s => s.id === instance.currentStageId);
+          
+          return {
+            ...instance,
+            entityName,
+            currentStageName: currentStage?.name || '',
+            stages: stagesWithTasks,
+          };
+        })
+      );
+      
+      result.instances = instancesWithStages;
     }
-
-    const result = includeInstances ? {
-      definitions,
-      instances: workflowInstancesData,
-    } : { definitions };
 
     return NextResponse.json(result);
   } catch (error) {
@@ -195,7 +157,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const workflowDef = workflowDefinitionsData.find(d => d.type === workflowType);
+    // 查找工作流定义
+    const workflowDef = await db.query.workflowDefinitions.findFirst({
+      where: eq(workflowDefinitions.type, workflowType),
+    });
+    
     if (!workflowDef) {
       return NextResponse.json(
         { error: '工作流类型不存在' },
@@ -203,42 +169,79 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const firstStage = workflowDef.stages[0];
-    const totalTasks = workflowDef.stages.reduce((sum, stage) => sum + stage.tasks.length, 0);
+    // 获取阶段定义
+    const stageDefs = await db.select()
+      .from(workflowStageDefinitions)
+      .where(eq(workflowStageDefinitions.workflowId, workflowDef.id))
+      .orderBy(workflowStageDefinitions.stageOrder);
+    
+    if (stageDefs.length === 0) {
+      return NextResponse.json(
+        { error: '工作流没有定义阶段' },
+        { status: 400 }
+      );
+    }
 
-    const newInstance = {
-      id: uuidv4(),
+    const firstStage = stageDefs[0];
+    
+    // 创建工作流实例
+    const instanceId = uuidv4();
+    await db.insert(workflowInstances).values({
+      id: instanceId,
       workflowId: workflowDef.id,
-      workflowName: workflowDef.name,
       entityType,
       entityId,
-      entityName: entityName || entityId,
       currentStageId: firstStage.id,
-      currentStageName: firstStage.name,
       status: 'pending',
       progress: 0,
-      totalTasks,
+      totalTasks: 0,
       completedTasks: 0,
-      startedAt: new Date().toISOString(),
-      stages: workflowDef.stages.map(stage => ({
-        id: stage.id,
-        name: stage.name,
-        status: stage.stageOrder === 1 ? 'pending' : 'pending',
-        completedTasks: 0,
-        totalTasks: stage.tasks.length,
-        tasks: stage.tasks.map((task, idx) => ({
-          id: `${uuidv4()}`,
-          name: task.name,
+      startedAt: new Date(),
+    });
+
+    // 创建任务实例
+    let totalTasks = 0;
+    for (const stageDef of stageDefs) {
+      const taskTemplates = await db.select()
+        .from(workflowTaskTemplates)
+        .where(eq(workflowTaskTemplates.stageId, stageDef.id))
+        .orderBy(workflowTaskTemplates.taskOrder);
+      
+      for (const template of taskTemplates) {
+        await db.insert(workflowTaskInstances).values({
+          id: uuidv4(),
+          instanceId,
+          templateId: template.id,
+          stageId: stageDef.id,
+          name: template.name,
+          description: template.description,
+          priority: template.priority,
+          assigneeRole: template.assigneeRole,
           status: 'pending',
-          assigneeRole: task.assigneeRole,
-        })),
-      })),
-    };
+          checklist: template.checklist?.map((text: string) => ({ text, completed: false })) || [],
+          totalChecklist: template.checklist?.length || 0,
+          completedChecklist: 0,
+        });
+        totalTasks++;
+      }
+    }
+    
+    // 更新总任务数
+    await db.update(workflowInstances)
+      .set({ totalTasks })
+      .where(eq(workflowInstances.id, instanceId));
 
-    // 在实际项目中，这里会保存到数据库
-    workflowInstancesData.push(newInstance as any);
+    // 查询创建的实例
+    const newInstance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, instanceId),
+    });
 
-    return NextResponse.json(newInstance, { status: 201 });
+    return NextResponse.json({
+      ...newInstance,
+      workflowName: workflowDef.name,
+      entityName: entityName || entityId,
+      currentStageName: firstStage.name,
+    }, { status: 201 });
   } catch (error) {
     console.error('创建工作流实例失败:', error);
     return NextResponse.json(
