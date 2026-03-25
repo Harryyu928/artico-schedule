@@ -15,6 +15,7 @@ import {
 } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { notifyWorkflowUpdate, notifyTaskUpdate } from './realtime-service';
 
 /**
  * 为学生自动创建入学流程工作流实例
@@ -187,7 +188,7 @@ export async function createWorkflowInstance(params: {
 /**
  * 完成特定任务（用于其他模块调用）
  */
-export async function completeTaskByName(instanceId: string, taskName: string) {
+export async function completeTaskByName(instanceId: string, taskName: string, completedBy?: string) {
   const task = await db.query.workflowTaskInstances.findFirst({
     where: and(
       eq(workflowTaskInstances.instanceId, instanceId),
@@ -213,11 +214,42 @@ export async function completeTaskByName(instanceId: string, taskName: string) {
     })
     .where(eq(workflowTaskInstances.id, task.id));
   
+  // 发送实时通知
+  if (task.assigneeId) {
+    notifyTaskUpdate(task.assigneeId, {
+      taskId: task.id,
+      instanceId,
+      status: 'completed',
+      message: `任务"${task.name}"已完成`,
+    });
+  }
+  
   // 解除依赖此任务的其他任务的阻塞状态
   await unblockDependentTasks(task.id);
   
   // 更新工作流进度
-  await updateWorkflowProgress(instanceId);
+  const updatedInstance = await updateWorkflowProgress(instanceId);
+  
+  // 如果工作流完成，发送通知
+  if (updatedInstance?.status === 'completed') {
+    // 通知所有参与任务的用户
+    const allTasks = await db.select()
+      .from(workflowTaskInstances)
+      .where(eq(workflowTaskInstances.instanceId, instanceId));
+    
+    const participantIds = [...new Set(allTasks.filter(t => t.assigneeId).map(t => t.assigneeId))];
+    
+    for (const participantId of participantIds) {
+      if (participantId) {
+        notifyWorkflowUpdate(participantId, {
+          instanceId,
+          status: 'completed',
+          progress: 100,
+          message: '工作流已完成',
+        });
+      }
+    }
+  }
   
   return task;
 }
@@ -284,21 +316,21 @@ export async function getEntityWorkflowInstance(entityType: string, entityId: st
 /**
  * 更新工作流进度（从任务完成触发）
  */
-async function updateWorkflowProgress(instanceId: string) {
+async function updateWorkflowProgress(instanceId: string): Promise<typeof workflowInstances.$inferSelect | null> {
   try {
     // 获取工作流实例
     const instance = await db.query.workflowInstances.findFirst({
       where: eq(workflowInstances.id, instanceId),
     });
     
-    if (!instance) return;
+    if (!instance) return null;
     
     // 获取该实例的所有任务
     const tasks = await db.select()
       .from(workflowTaskInstances)
       .where(eq(workflowTaskInstances.instanceId, instanceId));
     
-    if (tasks.length === 0) return;
+    if (tasks.length === 0) return null;
     
     const completedTasks = tasks.filter(t => t.status === 'completed').length;
     const totalTasks = tasks.length;
@@ -341,8 +373,14 @@ async function updateWorkflowProgress(instanceId: string) {
     await db.update(workflowInstances)
       .set(updateData)
       .where(eq(workflowInstances.id, instanceId));
+    
+    // 返回更新后的实例
+    return await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, instanceId),
+    }) || null;
   } catch (error) {
     console.error('更新工作流进度失败:', error);
+    return null;
   }
 }
 
