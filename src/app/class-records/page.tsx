@@ -501,17 +501,50 @@ export default function ClassRecordsPage() {
   };
 
   // 下载PDF
-  const handleDownloadPDF = (record: ClassRecord) => {
-    if (!record.pdfUrl) {
+  const handleDownloadPDF = async (record: ClassRecord) => {
+    try {
+      // 如果没有PDF，先尝试生成
+      if (!record.pdfUrl) {
+        toast({
+          title: '正在生成PDF',
+          description: '请稍候...',
+        });
+        
+        // 调用生成PDF API
+        const generateResponse = await fetch(`/api/class-records/${record.id}/pdf`, {
+          method: 'POST',
+        });
+        const generateResult = await generateResponse.json();
+        
+        if (!generateResult.success) {
+          throw new Error(generateResult.error || '生成PDF失败');
+        }
+        
+        // 更新记录
+        fetchRecords();
+        
+        // 下载PDF
+        window.open(generateResult.data.pdfUrl, '_blank');
+        return;
+      }
+      
+      // 获取签名URL
+      const response = await fetch(`/api/class-records/${record.id}/pdf`);
+      const result = await response.json();
+      
+      if (result.success && result.data.pdfUrl) {
+        window.open(result.data.pdfUrl, '_blank');
+      } else {
+        throw new Error('获取PDF链接失败');
+      }
+    } catch (error) {
+      console.error('下载PDF失败:', error);
       toast({
-        title: '提示',
-        description: 'PDF正在生成中，请稍后再试',
-        variant: 'default',
+        title: '错误',
+        description: '下载PDF失败，请重试',
+        variant: 'destructive',
       });
-      return;
     }
-    
-    window.open(record.pdfUrl, '_blank');
   };
 
   // 重置表单
@@ -1540,10 +1573,9 @@ AP 学生作品赏析
                 <Button 
                   variant="outline" 
                   onClick={() => handleDownloadPDF(selectedRecord)}
-                  disabled={!selectedRecord?.pdfUrl}
                 >
                   <FileDown className="h-4 w-4 mr-2" />
-                  下载PDF
+                  {selectedRecord?.pdfUrl ? '下载PDF' : '生成PDF'}
                 </Button>
                 <Button variant="outline" onClick={() => {
                   setDetailDialogOpen(false);

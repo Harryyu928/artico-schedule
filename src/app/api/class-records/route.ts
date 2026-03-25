@@ -5,7 +5,7 @@
  * GET    /api/class-records         - 获取记录列表
  * PUT    /api/class-records/[id]    - 更新记录
  * GET    /api/class-records/[id]/pdf - 下载PDF
- * POST   /api/class-records/[id]/sign-link - 生成签字链接
+ * POST   /api/class-records/[id]/pdf - 生成PDF
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +14,7 @@ import { classRecords, students, teachers, courses } from '@/db/schema';
 import { eq, desc, and, gte, like, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
+import { generateAndUploadPDF } from '@/lib/pdf-generator';
 
 // GET - 获取上课记录列表
 export async function GET(request: NextRequest) {
@@ -145,6 +146,57 @@ export async function POST(request: NextRequest) {
     const domain = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'http://localhost:5000';
     const signLink = `${domain}/sign/${signToken}`;
     
+    // 如果状态是"已完成"，自动生成PDF
+    let pdfUrl = null;
+    if (body.attendanceStatus === '已完成') {
+      try {
+        // 获取关联信息
+        const [student] = await db.select().from(students).where(eq(students.id, body.studentId)).limit(1);
+        const [teacher] = await db.select().from(teachers).where(eq(teachers.id, body.teacherId)).limit(1);
+        const [course] = await db.select().from(courses).where(eq(courses.id, body.courseId)).limit(1);
+        
+        // 生成PDF
+        const pdfResult = await generateAndUploadPDF({
+          recordId,
+          studentName: student?.name || '未知学生',
+          teacherName: teacher?.name || '未知导师',
+          courseName: course?.name || '未知课程',
+          courseCategory: body.courseCategory,
+          courseContentDetail: body.courseContentDetail,
+          classDate: body.classDate,
+          weekDay: body.weekDay,
+          startTime: body.startTime,
+          endTime: body.endTime,
+          actualDuration: body.actualDuration || 120,
+          contentSummary: body.contentSummary,
+          teachingMethod: body.teachingMethod,
+          studentPerformance: body.studentPerformance,
+          attendanceStatus: body.attendanceStatus || '已排课',
+          homeworkAssigned: body.homeworkAssigned,
+          homeworkDeadline: body.homeworkDeadline,
+          homeworkCompletionRate: body.homeworkCompletionRate,
+          lastHomeworkQuality: body.lastHomeworkQuality,
+          nextClassPlan: body.nextClassPlan,
+          teacherFeedback: body.teacherFeedback,
+          studentFeedback: body.studentFeedback,
+          projectPhase: body.projectPhase,
+          phaseContent: body.phaseContent,
+          attachments: body.attachments,
+          signLink,
+        });
+        
+        // 更新PDF URL
+        await db.update(classRecords)
+          .set({ pdfUrl: pdfResult.key, pdfGeneratedAt: new Date(), updatedAt: new Date() })
+          .where(eq(classRecords.id, id));
+        
+        pdfUrl = pdfResult.url;
+      } catch (pdfError) {
+        console.error('自动生成PDF失败:', pdfError);
+        // PDF生成失败不影响记录创建
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       data: {
@@ -153,6 +205,7 @@ export async function POST(request: NextRequest) {
         signToken,
         signLink,
         signTokenExpiresAt,
+        pdfUrl,
       },
     });
   } catch (error) {
