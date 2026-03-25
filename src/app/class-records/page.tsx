@@ -500,6 +500,61 @@ export default function ClassRecordsPage() {
     }
   };
 
+  // 发送签字链接邮件
+  const handleSendSignLink = async (record: ClassRecord) => {
+    if (!record.signToken) {
+      toast({
+        title: '错误',
+        description: '签字链接未生成，请先保存记录',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (record.studentSignature) {
+      toast({
+        title: '提示',
+        description: '学生已签字，无需再次发送',
+        variant: 'default',
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: '发送中',
+        description: '正在发送签字链接...',
+      });
+
+      const response = await fetch(`/api/class-records/${record.id}/send-sign-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '发送失败');
+      }
+
+      toast({
+        title: '发送成功',
+        description: `签字链接已发送至 ${result.data.sentTo}`,
+      });
+
+      // 刷新记录
+      fetchRecords();
+    } catch (error) {
+      console.error('发送签字链接失败:', error);
+      toast({
+        title: '发送失败',
+        description: error instanceof Error ? error.message : '发送失败，请重试',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // 下载PDF
   const handleDownloadPDF = async (record: ClassRecord) => {
     try {
@@ -1559,17 +1614,29 @@ AP 学生作品赏析
               </div>
 
               {/* 操作按钮 */}
-              <div className="flex gap-2 justify-end pt-4 border-t">
+              <div className="flex flex-wrap gap-2 justify-end pt-4 border-t">
                 <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
                   关闭
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleCopySignLink(selectedRecord)}
-                >
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  复制签字链接
-                </Button>
+                {!selectedRecord.studentSignature && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleSendSignLink(selectedRecord)}
+                      className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      发送签字链接
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleCopySignLink(selectedRecord)}
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      复制链接
+                    </Button>
+                  </>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={() => handleDownloadPDF(selectedRecord)}
