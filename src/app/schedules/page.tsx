@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Plus, 
@@ -17,7 +17,12 @@ import {
   LayoutGrid,
   List,
   Sparkles,
-  Eye
+  Eye,
+  Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  CalendarDays
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +53,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmDialog, useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { exportToCSV, scheduleExportColumns } from '@/lib/export-utils';
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const timeSlots = ['10:00', '13:00', '15:00', '18:00', '20:00'];
@@ -88,6 +95,11 @@ interface Course {
   courseId: string;
 }
 
+type SortField = 'scheduleId' | 'date' | 'studentName' | 'teacherName' | 'courseName' | 'hours' | 'status' | 'createdAt';
+type SortOrder = 'asc' | 'desc';
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -102,6 +114,15 @@ export default function SchedulesPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const { toast } = useToast();
+  const { confirm, confirmDialogProps } = useConfirmDialog();
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // 排序状态
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // 新排课表单
   const [newSchedule, setNewSchedule] = useState({
@@ -183,35 +204,42 @@ export default function SchedulesPage() {
 
   // 自动排课
   const handleAutoSchedule = async () => {
-    try {
-      toast({
-        title: '自动排课',
-        description: '正在执行自动排课...',
-      });
+    confirm(
+      '确认自动排课',
+      '系统将根据学生和导师的时间表自动匹配排课，是否继续？',
+      async () => {
+        try {
+          toast({
+            title: '自动排课',
+            description: '正在执行自动排课...',
+          });
 
-      const response = await fetch('/api/schedule/auto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+          const response = await fetch('/api/schedule/auto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
 
-      if (!response.ok) throw new Error('自动排课失败');
+          if (!response.ok) throw new Error('自动排课失败');
 
-      const result = await response.json();
-      
-      toast({
-        title: '成功',
-        description: `自动排课完成，共安排 ${result.scheduled || 0} 节课程`,
-      });
+          const result = await response.json();
+          
+          toast({
+            title: '成功',
+            description: `自动排课完成，共安排 ${result.scheduled || 0} 节课程`,
+          });
 
-      fetchSchedules();
-    } catch (error) {
-      console.error('自动排课失败:', error);
-      toast({
-        title: '错误',
-        description: '自动排课失败，请重试',
-        variant: 'destructive',
-      });
-    }
+          fetchSchedules();
+        } catch (error) {
+          console.error('自动排课失败:', error);
+          toast({
+            title: '错误',
+            description: '自动排课失败，请重试',
+            variant: 'destructive',
+          });
+        }
+      },
+      'default'
+    );
   };
 
   // 创建排课
@@ -263,9 +291,9 @@ export default function SchedulesPage() {
   };
 
   // 更新排课状态
-  const handleUpdateStatus = async (scheduleId: string, status: string) => {
+  const handleUpdateStatus = async (schedule: Schedule, status: string) => {
     try {
-      const response = await fetch(`/api/schedule/${scheduleId}`, {
+      const response = await fetch(`/api/schedule/${schedule.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -291,31 +319,36 @@ export default function SchedulesPage() {
   };
 
   // 删除排课
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    if (!confirm('确定要删除这个排课吗？')) return;
+  const handleDeleteSchedule = (schedule: Schedule) => {
+    confirm(
+      '确认删除',
+      `确定要删除 ${schedule.date} 的排课「${schedule.courseName}」吗？此操作无法撤销。`,
+      async () => {
+        try {
+          const response = await fetch(`/api/schedule/${schedule.id}`, {
+            method: 'DELETE',
+          });
 
-    try {
-      const response = await fetch(`/api/schedule/${scheduleId}`, {
-        method: 'DELETE',
-      });
+          if (!response.ok) throw new Error('删除失败');
 
-      if (!response.ok) throw new Error('删除失败');
+          toast({
+            title: '成功',
+            description: '排课已删除',
+          });
 
-      toast({
-        title: '成功',
-        description: '排课已删除',
-      });
-
-      setDetailDialogOpen(false);
-      fetchSchedules();
-    } catch (error) {
-      console.error('删除失败:', error);
-      toast({
-        title: '错误',
-        description: '删除失败，请重试',
-        variant: 'destructive',
-      });
-    }
+          setDetailDialogOpen(false);
+          fetchSchedules();
+        } catch (error) {
+          console.error('删除失败:', error);
+          toast({
+            title: '错误',
+            description: '删除失败，请重试',
+            variant: 'destructive',
+          });
+        }
+      },
+      'destructive'
+    );
   };
 
   // 获取状态图标
@@ -350,16 +383,74 @@ export default function SchedulesPage() {
     }
   };
 
-  // 过滤排课
-  const filteredSchedules = schedules.filter(schedule => {
-    const matchesSearch = 
-      schedule.studentName?.includes(searchTerm) ||
-      schedule.teacherName?.includes(searchTerm) ||
-      schedule.courseName?.includes(searchTerm) ||
-      schedule.scheduleId?.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || schedule.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // 处理排序
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // 获取排序图标
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+    }
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="h-4 w-4 text-orange-500" />
+      : <ArrowDown className="h-4 w-4 text-orange-500" />;
+  };
+
+  // 过滤和排序排课
+  const filteredAndSortedSchedules = useMemo(() => {
+    let result = schedules.filter(schedule => {
+      const matchesSearch = 
+        schedule.studentName?.includes(searchTerm) ||
+        schedule.teacherName?.includes(searchTerm) ||
+        schedule.courseName?.includes(searchTerm) ||
+        schedule.scheduleId?.includes(searchTerm);
+      const matchesStatus = statusFilter === 'all' || schedule.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+
+    // 排序
+    result.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'scheduleId':
+        case 'studentName':
+        case 'teacherName':
+        case 'courseName':
+        case 'status':
+          comparison = (a[sortField] || '').localeCompare(b[sortField] || '', 'zh-CN');
+          break;
+        case 'date':
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'hours':
+          comparison = (a[sortField] || 0) - (b[sortField] || 0);
+          break;
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [schedules, searchTerm, statusFilter, sortField, sortOrder]);
+
+  // 分页数据
+  const totalPages = Math.ceil(filteredAndSortedSchedules.length / pageSize);
+  const paginatedSchedules = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAndSortedSchedules.slice(start, start + pageSize);
+  }, [filteredAndSortedSchedules, currentPage, pageSize]);
 
   // 获取周日期范围
   const getWeekDateRange = () => {
@@ -374,13 +465,38 @@ export default function SchedulesPage() {
     return schedules.filter(s => s.weekDay === day && s.timeSlot === time);
   };
 
+  // 导出数据
+  const handleExport = () => {
+    if (filteredAndSortedSchedules.length === 0) {
+      toast({
+        title: '提示',
+        description: '没有可导出的数据',
+        variant: 'default',
+      });
+      return;
+    }
+
+    // 准备导出数据
+    const exportData = filteredAndSortedSchedules.map(schedule => ({
+      ...schedule,
+      createdAt: new Date(schedule.createdAt).toLocaleDateString('zh-CN'),
+    }));
+
+    exportToCSV(exportData, scheduleExportColumns, '排课列表');
+    
+    toast({
+      title: '导出成功',
+      description: `已导出 ${exportData.length} 条排课数据`,
+    });
+  };
+
   // 统计数据
-  const stats = {
+  const stats = useMemo(() => ({
     total: schedules.length,
     pending: schedules.filter(s => s.status === '待确认').length,
     confirmed: schedules.filter(s => s.status === '已确认').length,
     completed: schedules.filter(s => s.status === '已完成').length,
-  };
+  }), [schedules]);
 
   return (
     <div className="space-y-6">
@@ -392,6 +508,11 @@ export default function SchedulesPage() {
         </div>
         
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={loading || schedules.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
+            导出数据
+          </Button>
+          
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -538,36 +659,48 @@ export default function SchedulesPage() {
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">总排课数</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-orange-500" />
+              总排课数
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold text-orange-600">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">待确认</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              待确认
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-500">{stats.pending}</div>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">已确认</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-blue-500" />
+              已确认
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-500">{stats.confirmed}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.confirmed}</div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">已完成</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              已完成
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-500">{stats.completed}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
           </CardContent>
         </Card>
       </div>
@@ -600,11 +733,17 @@ export default function SchedulesPage() {
                 <Input
                   placeholder="搜索学生/导师/课程..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-8 w-64"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(v) => {
+                setStatusFilter(v);
+                setCurrentPage(1);
+              }}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="状态筛选" />
                 </SelectTrigger>
@@ -625,104 +764,227 @@ export default function SchedulesPage() {
           {viewMode === 'list' && (
             <>
               {loading ? (
-                <div className="text-center py-8 text-gray-500">加载中...</div>
-              ) : filteredSchedules.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">暂无排课数据</div>
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <p className="text-gray-500">加载中...</p>
+                </div>
+              ) : filteredAndSortedSchedules.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-4">暂无排课数据</p>
+                  <Button onClick={handleAutoSchedule}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    自动排课
+                  </Button>
+                </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>排课编号</TableHead>
-                      <TableHead>日期</TableHead>
-                      <TableHead>时间</TableHead>
-                      <TableHead>学生</TableHead>
-                      <TableHead>导师</TableHead>
-                      <TableHead>课程</TableHead>
-                      <TableHead>时长</TableHead>
-                      <TableHead>状态</TableHead>
-                      <TableHead className="text-right">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSchedules.map((schedule) => (
-                      <TableRow key={schedule.id}>
-                        <TableCell className="font-medium">{schedule.scheduleId}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span>{schedule.date}</span>
-                            <span className="text-gray-400">({schedule.weekDay})</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-gray-400" />
-                            {schedule.timeSlot}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            {schedule.studentName}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            {schedule.teacherName}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-gray-400" />
-                            {schedule.courseName}
-                          </div>
-                        </TableCell>
-                        <TableCell>{schedule.hours}小时</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(schedule.status)}
-                            <Badge className={getStatusColor(schedule.status)}>
-                              {schedule.status}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedSchedule(schedule);
-                                setDetailDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {schedule.status === '待确认' && (
-                              <>
+                <>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('scheduleId')}
+                          >
+                            <div className="flex items-center gap-1">
+                              排课编号 {getSortIcon('scheduleId')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('date')}
+                          >
+                            <div className="flex items-center gap-1">
+                              日期 {getSortIcon('date')}
+                            </div>
+                          </TableHead>
+                          <TableHead>时间</TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('studentName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              学生 {getSortIcon('studentName')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('teacherName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              导师 {getSortIcon('teacherName')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('courseName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              课程 {getSortIcon('courseName')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('hours')}
+                          >
+                            <div className="flex items-center gap-1">
+                              时长 {getSortIcon('hours')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleSort('status')}
+                          >
+                            <div className="flex items-center gap-1">
+                              状态 {getSortIcon('status')}
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedSchedules.map((schedule) => (
+                          <TableRow key={schedule.id} className="hover:bg-gray-50">
+                            <TableCell className="font-medium">{schedule.scheduleId}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-gray-400" />
+                                <span>{schedule.date}</span>
+                                <span className="text-gray-400">({schedule.weekDay})</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-gray-400" />
+                                {schedule.timeSlot}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-gray-400" />
+                                {schedule.studentName}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-gray-400" />
+                                {schedule.teacherName}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-gray-400" />
+                                {schedule.courseName}
+                              </div>
+                            </TableCell>
+                            <TableCell>{schedule.hours}小时</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(schedule.status)}
+                                <Badge className={getStatusColor(schedule.status)}>
+                                  {schedule.status}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-2 justify-end">
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  onClick={() => handleUpdateStatus(schedule.id, '已确认')}
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedSchedule(schedule);
+                                    setDetailDialogOpen(true);
+                                  }}
                                 >
-                                  确认
+                                  <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleUpdateStatus(schedule.id, '取消')}
-                                >
-                                  取消
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                                {schedule.status === '待确认' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleUpdateStatus(schedule, '已确认')}
+                                    >
+                                      确认
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleUpdateStatus(schedule, '取消')}
+                                    >
+                                      取消
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* 分页 */}
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span>每页</span>
+                      <Select value={String(pageSize)} onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setCurrentPage(1);
+                      }}>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAGE_SIZE_OPTIONS.map(size => (
+                            <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span>条</span>
+                      <span className="mx-4">|</span>
+                      <span>
+                        共 {filteredAndSortedSchedules.length} 条，第 {currentPage}/{totalPages} 页
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        首页
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        末页
+                      </Button>
+                    </div>
+                  </div>
+                </>
               )}
             </>
           )}
@@ -865,20 +1127,20 @@ export default function SchedulesPage() {
               <div className="flex gap-2 justify-end pt-4">
                 {selectedSchedule.status === '待确认' && (
                   <>
-                    <Button variant="outline" onClick={() => handleUpdateStatus(selectedSchedule.id, '已确认')}>
+                    <Button variant="outline" onClick={() => handleUpdateStatus(selectedSchedule, '已确认')}>
                       确认排课
                     </Button>
-                    <Button variant="destructive" onClick={() => handleUpdateStatus(selectedSchedule.id, '取消')}>
+                    <Button variant="destructive" onClick={() => handleUpdateStatus(selectedSchedule, '取消')}>
                       取消排课
                     </Button>
                   </>
                 )}
                 {selectedSchedule.status === '已确认' && (
-                  <Button onClick={() => handleUpdateStatus(selectedSchedule.id, '已完成')}>
+                  <Button onClick={() => handleUpdateStatus(selectedSchedule, '已完成')}>
                     标记完成
                   </Button>
                 )}
-                <Button variant="ghost" onClick={() => handleDeleteSchedule(selectedSchedule.id)}>
+                <Button variant="ghost" onClick={() => handleDeleteSchedule(selectedSchedule)}>
                   删除
                 </Button>
               </div>
@@ -886,6 +1148,9 @@ export default function SchedulesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 确认弹窗 */}
+      <ConfirmDialog {...confirmDialogProps} />
     </div>
   );
 }
