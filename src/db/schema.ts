@@ -367,6 +367,16 @@ export const scheduleResults = pgTable('schedule_results', {
   // 飞书日历事件ID
   feishuEventId: varchar('feishu_event_id', { length: 100 }),
   
+  // PDF文件
+  pdfUrl: varchar('pdf_url', { length: 500 }),
+  pdfGeneratedAt: timestamp('pdf_generated_at'),
+  
+  // 学生签字确认
+  studentSignature: varchar('student_signature', { length: 500 }),
+  signatureTime: timestamp('signature_time'),
+  signToken: varchar('sign_token', { length: 64 }).unique(),
+  signTokenExpiresAt: timestamp('sign_token_expires_at'),
+  
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -413,6 +423,21 @@ export const courseSelectionForms = pgTable('course_selection_forms', {
   // 备注
   notes: text('notes'),
   goals: text('goals'),
+  
+  // PDF文件
+  pdfUrl: varchar('pdf_url', { length: 500 }),
+  pdfGeneratedAt: timestamp('pdf_generated_at'),
+  
+  // 学生签字
+  studentSignature: varchar('student_signature', { length: 500 }),
+  signatureTime: timestamp('signature_time'),
+  signatureMethod: varchar('signature_method', { length: 20 }),
+  
+  // 签字链接
+  signToken: varchar('sign_token', { length: 64 }).unique(),
+  signTokenExpiresAt: timestamp('sign_token_expires_at'),
+  signLinkSentAt: timestamp('sign_link_sent_at'),
+  signLinkSentTo: varchar('sign_link_sent_to', { length: 200 }),
   
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

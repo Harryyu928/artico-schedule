@@ -11,7 +11,9 @@ import {
   BookOpen,
   Target,
   TrendingUp,
-  Share2
+  Share2,
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,6 +99,7 @@ export default function SelectionFormDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // 添加课程表单
   const [courseForm, setCourseForm] = useState({
@@ -315,6 +318,49 @@ export default function SelectionFormDetailPage() {
     });
   };
 
+  // 导出PDF
+  const handleExportPDF = async () => {
+    if (!form) return;
+
+    try {
+      setGeneratingPDF(true);
+      toast({
+        title: '正在生成PDF',
+        description: '请稍候...',
+      });
+
+      const response = await fetch(`/api/selection-forms/${formId}/pdf`, {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '生成PDF失败');
+      }
+
+      // 下载PDF
+      if (result.data.pdfUrl) {
+        window.open(result.data.pdfUrl, '_blank');
+        toast({
+          title: 'PDF生成成功',
+          description: result.data.signLink 
+            ? 'PDF已生成，包含学生签字链接二维码'
+            : 'PDF已生成',
+        });
+      }
+    } catch (error) {
+      console.error('生成PDF失败:', error);
+      toast({
+        title: '错误',
+        description: '生成PDF失败，请重试',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       '待排课': 'secondary',
@@ -369,6 +415,20 @@ export default function SelectionFormDetailPage() {
                 <p className="text-gray-500 mt-1">选课单详情</p>
               </div>
               <div className="flex gap-2">
+                <Button
+                  onClick={handleExportPDF}
+                  disabled={generatingPDF}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {generatingPDF ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4" />
+                  )}
+                  {generatingPDF ? '生成中...' : '导出PDF'}
+                </Button>
                 <Button
                   onClick={handleShareForm}
                   disabled={generatingImage}
