@@ -704,12 +704,15 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   }
   
   // 本周课程
-  const weekSchedules = await db.query.scheduleResults.findMany({
-    where: and(
-      eq(scheduleResults.teacherId, teacher.id),
-      gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
-    ),
-  });
+  let weekSchedules: Array<{ id: string; studentId: string; teacherId: string; courseId: string; date: string; weekDay: string; timeSlot: string; status: string; hours: number }> = [];
+  try {
+    weekSchedules = await db.query.scheduleResults.findMany({
+      where: and(
+        eq(scheduleResults.teacherId, teacher.id),
+        gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
+      ),
+    }) as typeof weekSchedules;
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 今日课程
   const todaySchedules = weekSchedules.filter(s => s.date === today.toISOString().split('T')[0]);
@@ -718,24 +721,30 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   const weekHours = weekSchedules.reduce((sum, s) => sum + s.hours, 0);
   
   // 待填上课记录（详情）
-  const pendingRecordsList = await db.query.classRecords.findMany({
-    where: and(
-      eq(classRecords.teacherId, teacher.id),
-      eq(classRecords.attendanceStatus, '已排课')
-    ),
-    limit: 10,
-    orderBy: desc(classRecords.classDate),
-  });
+  let pendingRecordsList: Array<{ id: string; studentId: string; teacherId: string; courseId: string; classDate: string; attendanceStatus: string }> = [];
+  try {
+    pendingRecordsList = await db.query.classRecords.findMany({
+      where: and(
+        eq(classRecords.teacherId, teacher.id),
+        eq(classRecords.attendanceStatus, '已排课')
+      ),
+      limit: 10,
+      orderBy: desc(classRecords.classDate),
+    }) as typeof pendingRecordsList;
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 最近上课记录
-  const recentRecords = await db.query.classRecords.findMany({
-    where: and(
-      eq(classRecords.teacherId, teacher.id),
-      eq(classRecords.attendanceStatus, '已完成')
-    ),
-    limit: 5,
-    orderBy: desc(classRecords.createdAt),
-  });
+  let recentRecords: Array<{ id: string; studentId: string; teacherId: string; courseId: string; classDate: string; attendanceStatus: string; contentSummary?: string; createdAt: Date }> = [];
+  try {
+    recentRecords = await db.query.classRecords.findMany({
+      where: and(
+        eq(classRecords.teacherId, teacher.id),
+        eq(classRecords.attendanceStatus, '已完成')
+      ),
+      limit: 5,
+      orderBy: desc(classRecords.createdAt),
+    }) as typeof recentRecords;
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 我的学生（去重）
   const uniqueStudentIds = [...new Set(weekSchedules.map(s => s.studentId))];
@@ -772,12 +781,15 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   }));
   
   // 本月课程统计
-  const monthSchedules = await db.query.scheduleResults.findMany({
-    where: and(
-      eq(scheduleResults.teacherId, teacher.id),
-      gte(scheduleResults.createdAt, monthStart)
-    ),
-  });
+  let monthSchedules: Array<{ id: string; hours: number }> = [];
+  try {
+    monthSchedules = await db.query.scheduleResults.findMany({
+      where: and(
+        eq(scheduleResults.teacherId, teacher.id),
+        gte(scheduleResults.createdAt, monthStart)
+      ),
+    }) as typeof monthSchedules;
+  } catch (e) { /* 表不存在时忽略 */ }
 
   return NextResponse.json({
     success: true,

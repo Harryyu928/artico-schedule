@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, teachers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -168,6 +168,28 @@ export async function POST(request: NextRequest) {
         });
         
         if (user) {
+          // 如果是导师角色但没有关联 teacherId，创建 teacher 记录
+          if ((user.role === '全职导师' || user.role === '兼职导师') && !user.teacherId) {
+            const teacherRecordId = uuidv4();
+            const teacherType = user.role === '全职导师' ? '全职' : '兼职';
+            
+            await db.insert(teachers).values({
+              id: teacherRecordId,
+              teacherId: `T${Date.now()}`,
+              name: user.name || `测试${user.role}`,
+              teachableCourses: ['F-GD', 'F-TA'],
+              teacherType: teacherType,
+              maxWeeklyHours: user.role === '全职导师' ? 20 : 10,
+              currentHours: 0,
+              email: user.email,
+            });
+            
+            // 更新用户的 teacherId
+            await db.update(users)
+              .set({ teacherId: teacherRecordId })
+              .where(eq(users.id, user.id));
+          }
+          
           const cookieStore = await cookies();
           cookieStore.set('user_id', user.id, {
             httpOnly: true,
@@ -190,12 +212,31 @@ export async function POST(request: NextRequest) {
         const newUserId = uuidv4();
         const roleDisplayName = ROLE_DISPLAY_NAMES[role as UserRole] || role;
         
+        // 如果是导师角色，先创建 teacher 记录
+        let teacherRecordId: string | undefined;
+        if (role === '全职导师' || role === '兼职导师') {
+          teacherRecordId = uuidv4();
+          const teacherType = role === '全职导师' ? '全职' : '兼职';
+          
+          await db.insert(teachers).values({
+            id: teacherRecordId,
+            teacherId: `T${Date.now()}`,
+            name: `测试${roleDisplayName}`,
+            teachableCourses: ['F-GD', 'F-TA'],
+            teacherType: teacherType,
+            maxWeeklyHours: role === '全职导师' ? 20 : 10,
+            currentHours: 0,
+            email: `test_${role}@example.com`,
+          });
+        }
+        
         await db.insert(users).values({
           id: newUserId,
           name: `测试${roleDisplayName}`,
           username: `test_${role}_${Date.now()}`,
           email: `test_${role}@example.com`,
           role: role as UserRole,
+          teacherId: teacherRecordId,
         });
         
         const cookieStore = await cookies();
