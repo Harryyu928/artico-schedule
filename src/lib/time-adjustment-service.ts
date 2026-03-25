@@ -132,8 +132,12 @@ export async function createTimeBlock(request: CreateTimeBlockRequest) {
       affectedCount: affectedSchedules.length,
     };
   } catch (error: any) {
-    // 如果是表不存在的错误
-    if (error.code === '42P01' || error.message?.includes('does not exist')) {
+    // 检查各种可能的错误格式
+    const errorCode = error.code || error.cause?.code;
+    const errorMsg = error.message || error.cause?.message || '';
+    
+    // 如果是表不存在的错误 (PostgreSQL 错误码 42P01)
+    if (errorCode === '42P01' || errorMsg.includes('does not exist')) {
       teacherTimeBlocksTableExists = false;
       console.warn('teacher_time_blocks 表不存在，使用模拟模式');
       // 返回模拟数据
