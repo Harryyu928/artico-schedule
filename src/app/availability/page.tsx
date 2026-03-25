@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { format, parseISO, addDays, startOfWeek, addWeeks } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -18,6 +18,10 @@ import {
   XCircle,
   ClockAlert,
   CalendarX2,
+  Edit2,
+  Trash2,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -43,6 +47,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import MonthCalendar, { CalendarEvent } from '@/components/calendar/MonthCalendar';
+import { 
+  Skeleton, 
+  TimeTableSkeleton, 
+  CalendarSkeleton, 
+  UserSelectSkeleton 
+} from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const weekDaysForCalc = [1, 2, 3, 4, 5, 6, 0]; // JavaScript getDay() 格式
@@ -109,6 +120,7 @@ export default function AvailabilityPage() {
 
   // 时间调整表单
   const [timeBlockForm, setTimeBlockForm] = useState({
+    id: '', // 用于编辑模式
     startDate: '',
     endDate: '',
     startTime: '',
@@ -117,6 +129,7 @@ export default function AvailabilityPage() {
     blockType: 'temporary_unavailable' as BlockType,
     reason: '',
   });
+  const [isEditMode, setIsEditMode] = useState(false); // 编辑模式标记
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDateDialog, setShowDateDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -422,7 +435,7 @@ export default function AvailabilityPage() {
     }
   };
 
-  // 创建时间调整
+  // 创建或更新时间调整
   const handleCreateTimeBlock = async () => {
     if (!timeBlockForm.startDate || !timeBlockForm.endDate || !timeBlockForm.reason) {
       toast({ title: '提示', description: '请填写完整信息', variant: 'destructive' });
@@ -431,38 +444,84 @@ export default function AvailabilityPage() {
 
     try {
       setLoading(true);
+      
+      if (isEditMode && timeBlockForm.id) {
+        // 编辑模式：先取消旧的，再创建新的
+        const deleteResponse = await fetch(
+          `/api/time-blocks?id=${timeBlockForm.id}&cancelledBy=${selectedUserId}`,
+          { method: 'DELETE' }
+        );
+        
+        if (!deleteResponse.ok) {
+          throw new Error('删除旧记录失败');
+        }
+      }
+      
+      // 创建新记录
       const response = await fetch('/api/time-blocks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teacherId: selectedUserId,
-          ...timeBlockForm,
+          startDate: timeBlockForm.startDate,
+          endDate: timeBlockForm.endDate,
+          startTime: timeBlockForm.startTime || null,
+          endTime: timeBlockForm.endTime || null,
+          isAllDay: timeBlockForm.isAllDay,
+          blockType: timeBlockForm.blockType,
+          reason: timeBlockForm.reason,
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        toast({ title: '成功', description: data.message || '时间调整已创建' });
-        setTimeBlockForm({
-          startDate: '',
-          endDate: '',
-          startTime: '',
-          endTime: '',
-          isAllDay: true,
-          blockType: 'temporary_unavailable',
-          reason: '',
+        toast({ 
+          title: '成功', 
+          description: isEditMode ? '时间调整已更新' : (data.message || '时间调整已创建') 
         });
+        resetTimeBlockForm();
         setShowCreateDialog(false);
         loadTimeBlocks();
       } else {
-        toast({ title: '错误', description: data.message || '创建失败', variant: 'destructive' });
+        toast({ title: '错误', description: data.message || '操作失败', variant: 'destructive' });
       }
-    } catch {
+    } catch (error) {
       toast({ title: '错误', description: '网络错误', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
+  };
+
+  // 重置表单
+  const resetTimeBlockForm = () => {
+    setTimeBlockForm({
+      id: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: '',
+      isAllDay: true,
+      blockType: 'temporary_unavailable',
+      reason: '',
+    });
+    setIsEditMode(false);
+  };
+
+  // 编辑时间调整
+  const handleEditTimeBlock = (block: TimeBlock) => {
+    setTimeBlockForm({
+      id: block.id,
+      startDate: block.startDate,
+      endDate: block.endDate,
+      startTime: block.startTime || '',
+      endTime: block.endTime || '',
+      isAllDay: block.isAllDay,
+      blockType: block.blockType,
+      reason: block.reason,
+    });
+    setIsEditMode(true);
+    setShowCreateDialog(true);
   };
 
   // 取消时间调整
@@ -502,6 +561,7 @@ export default function AvailabilityPage() {
   const handleQuickCreate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     setTimeBlockForm({
+      id: '',
       startDate: dateStr,
       endDate: dateStr,
       startTime: '',
@@ -510,6 +570,7 @@ export default function AvailabilityPage() {
       blockType: 'temporary_unavailable',
       reason: '',
     });
+    setIsEditMode(false);
     setShowDateDialog(false);
     setShowCreateDialog(true);
   };
@@ -519,6 +580,7 @@ export default function AvailabilityPage() {
     if (userType !== 'teacher' || !selectedUserId) return;
     
     setTimeBlockForm({
+      id: '',
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
       startTime: '',
@@ -527,6 +589,7 @@ export default function AvailabilityPage() {
       blockType: 'temporary_unavailable',
       reason: '',
     });
+    setIsEditMode(false);
     setShowCreateDialog(true);
   };
 
@@ -684,17 +747,28 @@ export default function AvailabilityPage() {
           </div>
           
           {selectedUserId && (
-            <div className="mt-4 p-3 bg-orange-50 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-orange-500" />
-                <span className="text-sm">
-                  已选择：<strong>{getSelectedUserName()}</strong>
-                </span>
+            <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">已选择</span>
+                  <p className="font-semibold text-gray-800">{getSelectedUserName()}</p>
+                </div>
               </div>
-              <div className="flex gap-3 text-sm text-gray-600">
-                <span>可排课: <strong className="text-green-600">{availableCount}</strong> 个时段</span>
+              <div className="flex gap-4 text-sm">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
+                  <Clock className="h-4 w-4 text-green-600" />
+                  <span className="text-green-700 font-medium">{availableCount}</span>
+                  <span className="text-green-600">个时段</span>
+                </div>
                 {userType === 'teacher' && (
-                  <span>时间调整: <strong className="text-red-600">{activeTimeBlocks}</strong> 条</span>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
+                    <CalendarX2 className="h-4 w-4 text-orange-600" />
+                    <span className="text-orange-700 font-medium">{activeTimeBlocks}</span>
+                    <span className="text-orange-600">条调整</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -704,12 +778,18 @@ export default function AvailabilityPage() {
 
       {/* 主内容 - 标签页 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="schedule" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2 max-w-md bg-orange-50 p-1">
+          <TabsTrigger 
+            value="schedule" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+          >
             <Clock className="h-4 w-4" />
             周时间表
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="calendar" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+          >
             <CalendarDays className="h-4 w-4" />
             月历视图
           </TabsTrigger>
@@ -719,22 +799,45 @@ export default function AvailabilityPage() {
         <TabsContent value="schedule" className="space-y-6 mt-6">
           {/* 快速设置 */}
           <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>快速设置</CardTitle>
+            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-lg">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-orange-500" />
+                快速设置
+              </CardTitle>
               <CardDescription>一键设置常用时间段组合</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={quickSetWorkdays} disabled={!selectedUserId}>
+                <Button 
+                  variant="outline" 
+                  onClick={quickSetWorkdays} 
+                  disabled={!selectedUserId}
+                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+                >
                   工作日全天
                 </Button>
-                <Button variant="outline" onClick={quickSetWeekends} disabled={!selectedUserId}>
+                <Button 
+                  variant="outline" 
+                  onClick={quickSetWeekends} 
+                  disabled={!selectedUserId}
+                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+                >
                   周末全天
                 </Button>
-                <Button variant="outline" onClick={quickSetEvenings} disabled={!selectedUserId}>
+                <Button 
+                  variant="outline" 
+                  onClick={quickSetEvenings} 
+                  disabled={!selectedUserId}
+                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+                >
                   晚间时段
                 </Button>
-                <Button variant="outline" onClick={clearAll} disabled={!selectedUserId}>
+                <Button 
+                  variant="outline" 
+                  onClick={clearAll} 
+                  disabled={!selectedUserId}
+                  className="hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                >
                   清空全部
                 </Button>
               </div>
@@ -876,22 +979,32 @@ export default function AvailabilityPage() {
 
               {/* 导师专属：临时调整列表 */}
               {userType === 'teacher' && selectedUserId && (
-                <Card>
+                <Card className="border-0 shadow-md">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <CalendarX2 className="h-4 w-4 text-red-500" />
+                      <CalendarX2 className="h-4 w-4 text-orange-500" />
                       临时时间调整
+                      {activeTimeBlocks > 0 && (
+                        <Badge variant="secondary" className="ml-auto bg-orange-100 text-orange-700">
+                          {activeTimeBlocks} 条
+                        </Badge>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {activeTimeBlocks === 0 ? (
-                      <div className="text-center py-4 text-gray-400">
+                      <div className="text-center py-8 text-gray-400">
+                        <CalendarX2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
                         <p className="text-sm">暂无时间调整</p>
                         <Button
                           size="sm"
-                          className="mt-2 bg-orange-500"
-                          onClick={() => setShowCreateDialog(true)}
+                          className="mt-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                          onClick={() => {
+                            resetTimeBlockForm();
+                            setShowCreateDialog(true);
+                          }}
                         >
+                          <Plus className="mr-1 h-4 w-4" />
                           添加调整
                         </Button>
                       </div>
@@ -899,31 +1012,62 @@ export default function AvailabilityPage() {
                       <div className="space-y-2">
                         {timeBlocks
                           .filter(b => b.status === 'confirmed')
-                          .slice(0, 4)
+                          .slice(0, 5)
                           .map(block => (
                             <div
                               key={block.id}
-                              className="flex items-center justify-between p-2 rounded bg-red-50 border border-red-100"
+                              className="group flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 border border-orange-100 hover:border-orange-200 transition-all"
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-red-700">
-                                  {format(parseISO(block.startDate), 'MM-dd')}
-                                  {block.startDate !== block.endDate && (
-                                    <span> ~ {format(parseISO(block.endDate), 'MM-dd')}</span>
-                                  )}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">{block.reason}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold text-orange-700">
+                                    {format(parseISO(block.startDate), 'MM-dd')}
+                                    {block.startDate !== block.endDate && (
+                                      <span> ~ {format(parseISO(block.endDate), 'MM-dd')}</span>
+                                    )}
+                                  </p>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-xs",
+                                      block.blockType === 'meeting' && "border-blue-300 text-blue-600",
+                                      block.blockType === 'leave' && "border-purple-300 text-purple-600",
+                                      block.blockType === 'temporary_unavailable' && "border-red-300 text-red-600",
+                                      block.blockType === 'training' && "border-green-300 text-green-600",
+                                    )}
+                                  >
+                                    {BLOCK_TYPES.find(t => t.value === block.blockType)?.label || '其他'}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-gray-500 truncate mt-0.5">{block.reason}</p>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                                onClick={() => handleCancelTimeBlock(block.id)}
-                              >
-                                取消
-                              </Button>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-100"
+                                  onClick={() => handleEditTimeBlock(block)}
+                                  title="编辑"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                  onClick={() => handleCancelTimeBlock(block.id)}
+                                  title="删除"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
+                        {timeBlocks.filter(b => b.status === 'confirmed').length > 5 && (
+                          <p className="text-xs text-center text-gray-400 pt-2">
+                            还有 {timeBlocks.filter(b => b.status === 'confirmed').length - 5} 条记录...
+                          </p>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -932,10 +1076,10 @@ export default function AvailabilityPage() {
 
               {/* 提示信息 */}
               {userType === 'teacher' && selectedUserId && (
-                <Alert className="bg-orange-50 border-orange-200">
-                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                <Alert className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
+                  <Sparkles className="h-4 w-4 text-orange-500" />
                   <AlertDescription className="text-sm text-orange-700">
-                    点击日历中的日期可以快速添加临时时间调整
+                    <strong>提示：</strong>点击日历中的日期可快速添加临时时间调整，按住拖动可选择日期范围
                   </AlertDescription>
                 </Alert>
               )}
@@ -944,12 +1088,31 @@ export default function AvailabilityPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 创建时间调整对话框 */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      {/* 创建/编辑时间调整对话框 */}
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        setShowCreateDialog(open);
+        if (!open) resetTimeBlockForm();
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>添加临时时间调整</DialogTitle>
-            <DialogDescription>设置无法授课的时间段，系统将自动通知相关人员</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              {isEditMode ? (
+                <>
+                  <Edit2 className="h-5 w-5 text-orange-500" />
+                  编辑时间调整
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5 text-orange-500" />
+                  添加临时时间调整
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {isEditMode 
+                ? '修改时间调整信息，保存后将更新记录' 
+                : '设置无法授课的时间段，系统将自动通知相关人员'}
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -1038,14 +1201,24 @@ export default function AvailabilityPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>取消</Button>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowCreateDialog(false);
+                resetTimeBlockForm();
+              }}
+            >
+              取消
+            </Button>
             <Button
               onClick={handleCreateTimeBlock}
               disabled={loading}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
             >
-              {loading ? '创建中...' : '确认创建'}
+              {loading 
+                ? (isEditMode ? '保存中...' : '创建中...') 
+                : (isEditMode ? '保存修改' : '确认创建')}
             </Button>
           </div>
         </DialogContent>
