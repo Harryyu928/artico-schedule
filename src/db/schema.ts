@@ -466,6 +466,10 @@ export const classRecords = pgTable('class_records', {
   courseId: varchar('course_id', { length: 36 }).notNull().references(() => courses.id, { onDelete: 'cascade' }),
   selectionItemId: varchar('selection_item_id', { length: 36 }).references(() => courseSelectionItems.id, { onDelete: 'set null' }),
   
+  // 课程类别与内容（新增）
+  courseCategory: varchar('course_category', { length: 100 }), // 课程类别：AP艺术课程、作品集指导等
+  courseContentDetail: varchar('course_content_detail', { length: 200 }), // 课程内容详情：2D Design、3D Modeling等
+  
   // 上课信息
   classDate: date('class_date').notNull(),
   weekDay: weekDayEnum('week_day').notNull(),
@@ -484,9 +488,11 @@ export const classRecords = pgTable('class_records', {
   // 作业与反馈
   homeworkAssigned: text('homework_assigned'),
   homeworkDeadline: date('homework_deadline'),
+  homeworkCompletionRate: integer('homework_completion_rate').default(0), // 作业完成度 0-100
+  lastHomeworkQuality: varchar('last_homework_quality', { length: 50 }), // 上节课作业品质
   nextClassPlan: text('next_class_plan'),
-  teacherFeedback: text('teacher_feedback'),
-  studentFeedback: text('student_feedback'),
+  teacherFeedback: text('teacher_feedback'), // 导师评语
+  studentFeedback: text('student_feedback'), // 学生反馈
   
   // 项目课特有
   projectPhase: projectPhaseEnum('project_phase'),
@@ -494,6 +500,10 @@ export const classRecords = pgTable('class_records', {
   
   // 附件
   attachments: jsonb('attachments').$type<string[]>(),
+  
+  // 签名（新增）
+  studentSignature: varchar('student_signature', { length: 500 }), // 学生签名（图片URL或时间戳）
+  signatureTime: timestamp('signature_time'), // 签名时间
   
   // 记录创建者
   createdBy: varchar('created_by', { length: 36 }).notNull(),

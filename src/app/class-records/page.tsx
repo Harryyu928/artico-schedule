@@ -14,7 +14,13 @@ import {
   Eye,
   Edit,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Trash2,
+  Save,
+  Send,
+  PenLine,
+  Paperclip
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,15 +46,74 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const timeSlots = ['10:00', '13:00', '15:00', '18:00', '20:00'];
+const timeSlots = ['09:00', '10:00', '13:00', '15:00', '18:00', '20:00'];
+const endTimes = ['11:00', '12:00', '15:00', '17:00', '20:00', '22:00'];
+
+// 课程类别选项
+const courseCategories = [
+  'AP艺术课程',
+  '作品集指导',
+  '选课指导',
+  '基础课',
+  '项目课',
+  '文书指导',
+  '面试辅导',
+  '其他',
+];
+
+// 课程内容详情选项
+const courseContentDetails = [
+  '2D Design',
+  '3D Design',
+  'Drawing',
+  'Game Design',
+  'Animation',
+  'Character Design',
+  'Environment Design',
+  'UI/UX Design',
+  'Motion Graphics',
+  'Portfolio Development',
+  '其他',
+];
+
+// 上节课作业品质选项
+const homeworkQualityOptions = [
+  '未开课',
+  '优秀',
+  '良好',
+  '一般',
+  '需改进',
+  '未完成',
+];
+
+// 项目阶段选项
+const projectPhases = [
+  'Concept',
+  'Modeling', 
+  'Texturing',
+  'Lighting',
+  'Render',
+  'Portfolio',
+];
+
+// 上课状态选项
+const classStatusOptions = [
+  '已排课',
+  '已完成',
+  '已取消',
+  '学生缺席',
+  '导师缺席',
+  '补课',
+];
 
 interface ClassRecord {
   id: string;
@@ -59,6 +124,8 @@ interface ClassRecord {
   teacherName: string;
   courseId: string;
   courseName: string;
+  courseCategory?: string;
+  courseContentDetail?: string;
   classDate: string;
   weekDay: string;
   startTime: string;
@@ -68,8 +135,18 @@ interface ClassRecord {
   teachingMethod?: string;
   studentPerformance?: string;
   attendanceStatus: string;
-  homework?: string;
-  nextPlan?: string;
+  homeworkAssigned?: string;
+  homeworkDeadline?: string;
+  homeworkCompletionRate?: number;
+  lastHomeworkQuality?: string;
+  nextClassPlan?: string;
+  teacherFeedback?: string;
+  studentFeedback?: string;
+  projectPhase?: string;
+  phaseContent?: string;
+  attachments?: string[];
+  studentSignature?: string;
+  signatureTime?: string;
   createdAt: string;
 }
 
@@ -80,23 +157,44 @@ export default function ClassRecordsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ClassRecord | null>(null);
   const { toast } = useToast();
 
-  // 新记录表单
-  const [newRecord, setNewRecord] = useState({
+  // 新记录表单 - 完整版
+  const [formData, setFormData] = useState({
+    // 基本信息
     studentId: '',
     teacherId: '',
     courseId: '',
+    // 课程类别与内容
+    courseCategory: '',
+    courseContentDetail: '',
+    // 上课信息
     classDate: '',
     weekDay: '周一',
     startTime: '10:00',
+    endTime: '12:00',
     actualDuration: 120,
+    // 课程内容
     contentSummary: '',
-    teachingMethod: '',
+    teachingMethod: '一对一线上指导',
+    // 学生表现
     studentPerformance: '',
-    homework: '',
-    nextPlan: '',
+    attendanceStatus: '已排课',
+    // 作业与反馈
+    homeworkAssigned: '',
+    homeworkDeadline: '',
+    homeworkCompletionRate: 0,
+    lastHomeworkQuality: '未开课',
+    nextClassPlan: '',
+    teacherFeedback: '',
+    studentFeedback: '',
+    // 项目课特有
+    projectPhase: '',
+    phaseContent: '',
+    // 附件
+    attachments: [] as string[],
   });
 
   useEffect(() => {
@@ -106,7 +204,7 @@ export default function ClassRecordsPage() {
   const fetchRecords = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/class-records');
+      const response = await fetch('/api/class-records', { credentials: 'include' });
       const data = await response.json();
       setRecords(data.records || []);
     } catch (error) {
@@ -117,61 +215,36 @@ export default function ClassRecordsPage() {
           id: '1',
           recordId: 'REC-20260001',
           studentId: 'student-1',
-          studentName: '张三',
+          studentName: '陈玥希',
           teacherId: 'teacher-1',
-          teacherName: '李老师',
+          teacherName: '安桐锐',
           courseId: 'course-1',
-          courseName: '选课指导',
-          classDate: '2026-03-24',
+          courseName: 'AP艺术课程',
+          courseCategory: 'AP艺术课程',
+          courseContentDetail: '2D Design',
+          classDate: '2025-11-12',
           weekDay: '周二',
-          startTime: '10:00',
-          endTime: '12:00',
+          startTime: '15:30',
+          endTime: '17:30',
           actualDuration: 120,
-          contentSummary: '介绍了英国游戏设计专业申请要求和作品集准备方向',
+          contentSummary: `1.AP 课程内容介绍
+2.AP 考试分数占比
+3.AP 学生作品赏析
+4. 课程内容沟通
+5. 开题讨论
+6. 主题内容沟通
+7. 材料及实现准备建议
+8.AP 网站使用及注册界面讲解`,
           teachingMethod: '一对一线上指导',
-          studentPerformance: '学生表现积极，对英国院校有明确目标',
+          studentPerformance: '学生表现积极，对新课程充满期待',
           attendanceStatus: '已完成',
-          homework: '调研3所目标院校的作品集要求',
-          nextPlan: '下周开始作品集项目选题讨论',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          recordId: 'REC-20260002',
-          studentId: 'student-2',
-          studentName: '李四',
-          teacherId: 'teacher-1',
-          teacherName: '李老师',
-          courseId: 'course-2',
-          courseName: '作品集指导',
-          classDate: '2026-03-24',
-          weekDay: '周二',
-          startTime: '15:00',
-          endTime: '17:00',
-          actualDuration: 120,
-          contentSummary: '作品集项目一：游戏关卡设计',
-          teachingMethod: '一对一线上指导',
-          studentPerformance: '学生完成了初步的关卡草图设计',
-          attendanceStatus: '已完成',
-          homework: '完善关卡设计草图，下周进行3D建模',
-          nextPlan: '继续推进项目一',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          recordId: 'REC-20260003',
-          studentId: 'student-1',
-          studentName: '张三',
-          teacherId: 'teacher-2',
-          teacherName: '王老师',
-          courseId: 'course-3',
-          courseName: '文书指导',
-          classDate: '2026-03-26',
-          weekDay: '周四',
-          startTime: '18:00',
-          actualDuration: 120,
-          contentSummary: '',
-          attendanceStatus: '已排课',
+          homeworkAssigned: '完成AP网站注册，准备下节课主题素材',
+          homeworkDeadline: '2025-11-19',
+          homeworkCompletionRate: 0,
+          lastHomeworkQuality: '未开课',
+          nextClassPlan: '下周继续主题讨论和素材准备',
+          teacherFeedback: '全新的课程哦，不清楚的或者想不明白的要及时跟老师沟通',
+          attachments: [],
           createdAt: new Date().toISOString(),
         },
       ]);
@@ -180,13 +253,20 @@ export default function ClassRecordsPage() {
     }
   };
 
+  // 计算上课时长
+  const calculateDuration = (start: string, end: string) => {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    return (endH * 60 + endM) - (startH * 60 + startM);
+  };
+
   // 创建记录
   const handleCreateRecord = async () => {
     try {
-      if (!newRecord.studentId || !newRecord.teacherId || !newRecord.courseId || !newRecord.classDate) {
+      if (!formData.studentId || !formData.teacherId || !formData.courseId || !formData.classDate) {
         toast({
           title: '提示',
-          description: '请填写完整的记录信息',
+          description: '请填写完整的基本信息',
           variant: 'destructive',
         });
         return;
@@ -195,7 +275,8 @@ export default function ClassRecordsPage() {
       const response = await fetch('/api/class-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRecord),
+        body: JSON.stringify(formData),
+        credentials: 'include',
       });
 
       if (!response.ok) throw new Error('创建失败');
@@ -206,21 +287,7 @@ export default function ClassRecordsPage() {
       });
 
       setCreateDialogOpen(false);
-      setNewRecord({
-        studentId: '',
-        teacherId: '',
-        courseId: '',
-        classDate: '',
-        weekDay: '周一',
-        startTime: '10:00',
-        actualDuration: 120,
-        contentSummary: '',
-        teachingMethod: '',
-        studentPerformance: '',
-        homework: '',
-        nextPlan: '',
-      });
-
+      resetForm();
       fetchRecords();
     } catch (error) {
       console.error('创建记录失败:', error);
@@ -232,23 +299,26 @@ export default function ClassRecordsPage() {
     }
   };
 
-  // 更新状态
-  const handleUpdateStatus = async (recordId: string, status: string) => {
+  // 更新记录
+  const handleUpdateRecord = async () => {
+    if (!selectedRecord) return;
+    
     try {
-      const response = await fetch(`/api/class-records/${recordId}`, {
+      const response = await fetch(`/api/class-records/${selectedRecord.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attendanceStatus: status }),
+        body: JSON.stringify(formData),
+        credentials: 'include',
       });
 
       if (!response.ok) throw new Error('更新失败');
 
       toast({
         title: '成功',
-        description: '状态已更新',
+        description: '上课记录已更新',
       });
 
-      setDetailDialogOpen(false);
+      setEditDialogOpen(false);
       fetchRecords();
     } catch (error) {
       console.error('更新失败:', error);
@@ -260,17 +330,115 @@ export default function ClassRecordsPage() {
     }
   };
 
+  // 学生签名
+  const handleStudentSign = async (recordId: string) => {
+    try {
+      const response = await fetch(`/api/class-records/${recordId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          studentSignature: `signed_${Date.now()}`,
+          signatureTime: new Date().toISOString(),
+        }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('签名失败');
+
+      toast({
+        title: '成功',
+        description: '学生签名成功',
+      });
+
+      setDetailDialogOpen(false);
+      fetchRecords();
+    } catch (error) {
+      console.error('签名失败:', error);
+      toast({
+        title: '错误',
+        description: '签名失败，请重试',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 重置表单
+  const resetForm = () => {
+    setFormData({
+      studentId: '',
+      teacherId: '',
+      courseId: '',
+      courseCategory: '',
+      courseContentDetail: '',
+      classDate: '',
+      weekDay: '周一',
+      startTime: '10:00',
+      endTime: '12:00',
+      actualDuration: 120,
+      contentSummary: '',
+      teachingMethod: '一对一线上指导',
+      studentPerformance: '',
+      attendanceStatus: '已排课',
+      homeworkAssigned: '',
+      homeworkDeadline: '',
+      homeworkCompletionRate: 0,
+      lastHomeworkQuality: '未开课',
+      nextClassPlan: '',
+      teacherFeedback: '',
+      studentFeedback: '',
+      projectPhase: '',
+      phaseContent: '',
+      attachments: [],
+    });
+  };
+
+  // 打开编辑对话框
+  const openEditDialog = (record: ClassRecord) => {
+    setSelectedRecord(record);
+    setFormData({
+      studentId: record.studentId,
+      teacherId: record.teacherId,
+      courseId: record.courseId,
+      courseCategory: record.courseCategory || '',
+      courseContentDetail: record.courseContentDetail || '',
+      classDate: record.classDate,
+      weekDay: record.weekDay,
+      startTime: record.startTime,
+      endTime: record.endTime || '',
+      actualDuration: record.actualDuration,
+      contentSummary: record.contentSummary,
+      teachingMethod: record.teachingMethod || '',
+      studentPerformance: record.studentPerformance || '',
+      attendanceStatus: record.attendanceStatus,
+      homeworkAssigned: record.homeworkAssigned || '',
+      homeworkDeadline: record.homeworkDeadline || '',
+      homeworkCompletionRate: record.homeworkCompletionRate || 0,
+      lastHomeworkQuality: record.lastHomeworkQuality || '未开课',
+      nextClassPlan: record.nextClassPlan || '',
+      teacherFeedback: record.teacherFeedback || '',
+      studentFeedback: record.studentFeedback || '',
+      projectPhase: record.projectPhase || '',
+      phaseContent: record.phaseContent || '',
+      attachments: record.attachments || [],
+    });
+    setEditDialogOpen(true);
+  };
+
   // 获取状态图标
   const getStatusIcon = (status: string) => {
     switch (status) {
       case '已排课':
         return <Calendar className="h-4 w-4 text-blue-500" />;
-      case '已上课':
+      case '已完成':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case '缺课':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case '请假':
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      case '已取消':
+        return <XCircle className="h-4 w-4 text-gray-500" />;
+      case '学生缺席':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case '导师缺席':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      case '补课':
+        return <Clock className="h-4 w-4 text-purple-500" />;
       default:
         return null;
     }
@@ -280,15 +448,19 @@ export default function ClassRecordsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case '已排课':
-        return 'bg-blue-100 text-blue-700 hover:bg-blue-100';
-      case '已上课':
-        return 'bg-green-100 text-green-700 hover:bg-green-100';
-      case '缺课':
-        return 'bg-red-100 text-red-700 hover:bg-red-100';
-      case '请假':
-        return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100';
+        return 'bg-blue-100 text-blue-700';
+      case '已完成':
+        return 'bg-green-100 text-green-700';
+      case '已取消':
+        return 'bg-gray-100 text-gray-700';
+      case '学生缺席':
+        return 'bg-red-100 text-red-700';
+      case '导师缺席':
+        return 'bg-orange-100 text-orange-700';
+      case '补课':
+        return 'bg-purple-100 text-purple-700';
       default:
-        return 'bg-gray-100 text-gray-700 hover:bg-gray-100';
+        return 'bg-gray-100 text-gray-700';
     }
   };
 
@@ -307,13 +479,349 @@ export default function ClassRecordsPage() {
   const stats = {
     total: records.length,
     scheduled: records.filter(r => r.attendanceStatus === '已排课').length,
-    completed: records.filter(r => r.attendanceStatus === '已上课').length,
+    completed: records.filter(r => r.attendanceStatus === '已完成').length,
     thisMonth: records.filter(r => {
       const date = new Date(r.classDate);
       const now = new Date();
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     }).length,
   };
+
+  // 表单组件 - 用于创建和编辑
+  const RecordForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+    <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+      {/* 第一部分：基本信息 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <User className="w-5 h-5 text-orange-500" />
+          基本信息
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>课程类别 *</Label>
+            <Select
+              value={formData.courseCategory}
+              onValueChange={(value) => setFormData({ ...formData, courseCategory: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择课程类别" />
+              </SelectTrigger>
+              <SelectContent>
+                {courseCategories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>课程内容</Label>
+            <Select
+              value={formData.courseContentDetail}
+              onValueChange={(value) => setFormData({ ...formData, courseContentDetail: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择课程内容" />
+              </SelectTrigger>
+              <SelectContent>
+                {courseContentDetails.map(detail => (
+                  <SelectItem key={detail} value={detail}>{detail}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>学生姓名 *</Label>
+            <Input
+              placeholder="输入学生姓名"
+              value={formData.studentId}
+              onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>授课导师 *</Label>
+            <Input
+              placeholder="输入导师姓名"
+              value={formData.teacherId}
+              onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* 第二部分：上课时间 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <Clock className="w-5 h-5 text-orange-500" />
+          上课时间
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <Label>上课日期 *</Label>
+            <Input
+              type="date"
+              value={formData.classDate}
+              onChange={(e) => {
+                const date = new Date(e.target.value);
+                const dayOfWeek = date.getDay();
+                const weekDayMap: Record<number, string> = {
+                  0: '周日', 1: '周一', 2: '周二', 3: '周三',
+                  4: '周四', 5: '周五', 6: '周六'
+                };
+                setFormData({ 
+                  ...formData, 
+                  classDate: e.target.value,
+                  weekDay: weekDayMap[dayOfWeek]
+                });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>星期</Label>
+            <Input value={formData.weekDay} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label>上课时间</Label>
+            <Select
+              value={formData.startTime}
+              onValueChange={(value) => setFormData({ 
+                ...formData, 
+                startTime: value,
+                actualDuration: calculateDuration(value, formData.endTime)
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timeSlots.map(time => (
+                  <SelectItem key={time} value={time}>{time}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>下课时间</Label>
+            <Select
+              value={formData.endTime}
+              onValueChange={(value) => setFormData({ 
+                ...formData, 
+                endTime: value,
+                actualDuration: calculateDuration(formData.startTime, value)
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {endTimes.map(time => (
+                  <SelectItem key={time} value={time}>{time}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Clock className="w-4 h-4" />
+          课程时长：<span className="font-medium text-orange-600">{formData.actualDuration} 分钟</span>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* 第三部分：授课内容 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-orange-500" />
+          授课内容
+        </h3>
+        <div className="space-y-2">
+          <Label>本次授课内容 * <span className="text-gray-400 text-sm">(每行一条，自动编号)</span></Label>
+          <Textarea
+            placeholder={`示例格式：
+AP 课程内容介绍
+AP 考试分数占比
+AP 学生作品赏析
+课程内容沟通
+开题讨论`}
+            value={formData.contentSummary}
+            onChange={(e) => setFormData({ ...formData, contentSummary: e.target.value })}
+            className="min-h-[150px]"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>教学方式</Label>
+            <Select
+              value={formData.teachingMethod}
+              onValueChange={(value) => setFormData({ ...formData, teachingMethod: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="一对一线上指导">一对一线上指导</SelectItem>
+                <SelectItem value="一对多线上指导">一对多线上指导</SelectItem>
+                <SelectItem value="线下指导">线下指导</SelectItem>
+                <SelectItem value="答疑辅导">答疑辅导</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>上课状态</Label>
+            <Select
+              value={formData.attendanceStatus}
+              onValueChange={(value) => setFormData({ ...formData, attendanceStatus: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {classStatusOptions.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* 第四部分：作业与反馈 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <FileText className="w-5 h-5 text-orange-500" />
+          作业与反馈
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>作业完成度</Label>
+            <div className="flex items-center gap-4">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={formData.homeworkCompletionRate}
+                onChange={(e) => setFormData({ ...formData, homeworkCompletionRate: parseInt(e.target.value) || 0 })}
+                className="w-24"
+              />
+              <span className="text-gray-500">%</span>
+              <Progress value={formData.homeworkCompletionRate} className="flex-1" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>上节课作业品质</Label>
+            <Select
+              value={formData.lastHomeworkQuality}
+              onValueChange={(value) => setFormData({ ...formData, lastHomeworkQuality: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {homeworkQualityOptions.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>本次课后作业</Label>
+          <Textarea
+            placeholder="布置的课后作业内容..."
+            value={formData.homeworkAssigned}
+            onChange={(e) => setFormData({ ...formData, homeworkAssigned: e.target.value })}
+            className="min-h-[80px]"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>作业截止日期</Label>
+            <Input
+              type="date"
+              value={formData.homeworkDeadline}
+              onChange={(e) => setFormData({ ...formData, homeworkDeadline: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>导师评语</Label>
+          <Textarea
+            placeholder="对学生本次课程的评价和建议..."
+            value={formData.teacherFeedback}
+            onChange={(e) => setFormData({ ...formData, teacherFeedback: e.target.value })}
+            className="min-h-[80px]"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>下次课计划</Label>
+          <Textarea
+            placeholder="下次课程的内容安排..."
+            value={formData.nextClassPlan}
+            onChange={(e) => setFormData({ ...formData, nextClassPlan: e.target.value })}
+            className="min-h-[60px]"
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* 第五部分：项目课特有 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <Edit className="w-5 h-5 text-orange-500" />
+          项目信息（项目课填写）
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>项目阶段</Label>
+            <Select
+              value={formData.projectPhase}
+              onValueChange={(value) => setFormData({ ...formData, projectPhase: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择项目阶段" />
+              </SelectTrigger>
+              <SelectContent>
+                {projectPhases.map(phase => (
+                  <SelectItem key={phase} value={phase}>{phase}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>阶段内容详情</Label>
+          <Textarea
+            placeholder="当前项目阶段的具体内容..."
+            value={formData.phaseContent}
+            onChange={(e) => setFormData({ ...formData, phaseContent: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* 第六部分：附件 */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <Paperclip className="w-5 h-5 text-orange-500" />
+          附件
+        </h3>
+        <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
+          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500 mb-2">拖拽文件到此处或点击上传</p>
+          <p className="text-gray-400 text-sm">支持图片、PDF、视频等格式</p>
+          <Button variant="outline" className="mt-4">
+            选择文件
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -324,147 +832,10 @@ export default function ClassRecordsPage() {
           <p className="text-gray-500 mt-1">记录学生上课情况，自动更新学习进度</p>
         </div>
         
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              新建记录
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>创建上课记录</DialogTitle>
-              <DialogDescription>
-                记录本次上课的详细信息
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">日期</Label>
-                <Input
-                  type="date"
-                  value={newRecord.classDate}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    const dayOfWeek = date.getDay();
-                    const weekDayMap: Record<number, string> = {
-                      0: '周日', 1: '周一', 2: '周二', 3: '周三',
-                      4: '周四', 5: '周五', 6: '周六'
-                    };
-                    setNewRecord({ 
-                      ...newRecord, 
-                      classDate: e.target.value,
-                      weekDay: weekDayMap[dayOfWeek]
-                    });
-                  }}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">时间段</Label>
-                <Select
-                  value={newRecord.startTime}
-                  onValueChange={(value) => setNewRecord({ ...newRecord, startTime: value })}
-                >
-                  <SelectTrigger className="col-span-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.map(time => (
-                      <SelectItem key={time} value={time}>{time}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">时长(分钟)</Label>
-                <Input
-                  type="number"
-                  step={30}
-                  value={newRecord.actualDuration}
-                  onChange={(e) => setNewRecord({ ...newRecord, actualDuration: parseInt(e.target.value) || 120 })}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">学生ID</Label>
-                <Input
-                  placeholder="学生ID"
-                  value={newRecord.studentId}
-                  onChange={(e) => setNewRecord({ ...newRecord, studentId: e.target.value })}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">导师ID</Label>
-                <Input
-                  placeholder="导师ID"
-                  value={newRecord.teacherId}
-                  onChange={(e) => setNewRecord({ ...newRecord, teacherId: e.target.value })}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">课程ID</Label>
-                <Input
-                  placeholder="课程ID"
-                  value={newRecord.courseId}
-                  onChange={(e) => setNewRecord({ ...newRecord, courseId: e.target.value })}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-start gap-4">
-                <Label className="text-right pt-2">课程内容</Label>
-                <Textarea
-                  placeholder="本次课程的主要内容..."
-                  value={newRecord.contentSummary}
-                  onChange={(e) => setNewRecord({ ...newRecord, contentSummary: e.target.value })}
-                  className="col-span-2 min-h-[80px]"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">教学方式</Label>
-                <Input
-                  placeholder="如：一对一线上指导"
-                  value={newRecord.teachingMethod}
-                  onChange={(e) => setNewRecord({ ...newRecord, teachingMethod: e.target.value })}
-                  className="col-span-2"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-start gap-4">
-                <Label className="text-right pt-2">学生表现</Label>
-                <Textarea
-                  placeholder="学生的课堂表现..."
-                  value={newRecord.studentPerformance}
-                  onChange={(e) => setNewRecord({ ...newRecord, studentPerformance: e.target.value })}
-                  className="col-span-2 min-h-[60px]"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-start gap-4">
-                <Label className="text-right pt-2">课后作业</Label>
-                <Textarea
-                  placeholder="布置的课后作业..."
-                  value={newRecord.homework}
-                  onChange={(e) => setNewRecord({ ...newRecord, homework: e.target.value })}
-                  className="col-span-2 min-h-[60px]"
-                />
-              </div>
-              <div className="grid grid-cols-3 items-start gap-4">
-                <Label className="text-right pt-2">下次计划</Label>
-                <Textarea
-                  placeholder="下次课的计划..."
-                  value={newRecord.nextPlan}
-                  onChange={(e) => setNewRecord({ ...newRecord, nextPlan: e.target.value })}
-                  className="col-span-2 min-h-[60px]"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>取消</Button>
-              <Button onClick={handleCreateRecord}>创建记录</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => { resetForm(); setCreateDialogOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" />
+          新建记录
+        </Button>
       </div>
 
       {/* 统计卡片 */}
@@ -524,10 +895,9 @@ export default function ClassRecordsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部</SelectItem>
-                  <SelectItem value="已排课">已排课</SelectItem>
-                  <SelectItem value="已上课">已上课</SelectItem>
-                  <SelectItem value="缺课">缺课</SelectItem>
-                  <SelectItem value="请假">请假</SelectItem>
+                  {classStatusOptions.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -544,12 +914,13 @@ export default function ClassRecordsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>记录编号</TableHead>
-                  <TableHead>日期</TableHead>
+                  <TableHead>课程类别</TableHead>
+                  <TableHead>日期/时间</TableHead>
                   <TableHead>学生</TableHead>
                   <TableHead>导师</TableHead>
-                  <TableHead>课程</TableHead>
                   <TableHead>时长</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead>签名</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -558,10 +929,20 @@ export default function ClassRecordsPage() {
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">{record.recordId}</TableCell>
                     <TableCell>
+                      <div>
+                        <div className="font-medium">{record.courseCategory || record.courseName}</div>
+                        {record.courseContentDetail && (
+                          <div className="text-xs text-gray-500">{record.courseContentDetail}</div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>{record.classDate}</span>
-                        <span className="text-gray-400">({record.weekDay})</span>
+                        <div>
+                          <div>{record.classDate}</div>
+                          <div className="text-xs text-gray-500">{record.startTime} - {record.endTime}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -578,12 +959,6 @@ export default function ClassRecordsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-gray-400" />
-                        {record.courseName}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-gray-400" />
                         {record.actualDuration}分钟
                       </div>
@@ -595,6 +970,13 @@ export default function ClassRecordsPage() {
                           {record.attendanceStatus}
                         </Badge>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {record.studentSignature ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-gray-300" />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
@@ -608,17 +990,13 @@ export default function ClassRecordsPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {record.attendanceStatus === '已排课' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleUpdateStatus(record.id, '已上课')}
-                            >
-                              完成
-                            </Button>
-                          </>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEditDialog(record)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -629,9 +1007,55 @@ export default function ClassRecordsPage() {
         </CardContent>
       </Card>
 
-      {/* 详情弹窗 */}
+      {/* 创建记录对话框 */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              新建上课记录
+            </DialogTitle>
+            <DialogDescription>
+              请填写完整的上课记录信息
+            </DialogDescription>
+          </DialogHeader>
+          <RecordForm />
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>取消</Button>
+            <Button onClick={handleCreateRecord}>
+              <Save className="h-4 w-4 mr-2" />
+              保存记录
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑记录对话框 */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              编辑上课记录
+            </DialogTitle>
+            <DialogDescription>
+              修改上课记录信息
+            </DialogDescription>
+          </DialogHeader>
+          <RecordForm isEdit />
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>取消</Button>
+            <Button onClick={handleUpdateRecord}>
+              <Save className="h-4 w-4 mr-2" />
+              保存修改
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 详情对话框 */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -639,27 +1063,44 @@ export default function ClassRecordsPage() {
             </DialogTitle>
           </DialogHeader>
           {selectedRecord && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">记录编号</span>
-                <span className="font-medium">{selectedRecord.recordId}</span>
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* 头部信息 */}
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg p-4 text-white">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm opacity-90">{selectedRecord.courseCategory}</div>
+                    <div className="text-2xl font-bold">{selectedRecord.courseContentDetail || selectedRecord.courseName}</div>
+                  </div>
+                  <Badge className="bg-white/20 text-white text-lg px-3 py-1">
+                    {selectedRecord.recordId}
+                  </Badge>
+                </div>
               </div>
-              
+
+              {/* 基本信息 */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
-                  <span className="text-gray-500 text-sm">学生</span>
+                  <span className="text-gray-500 text-sm">学生姓名</span>
                   <div className="font-medium">{selectedRecord.studentName}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-sm">导师</span>
+                  <span className="text-gray-500 text-sm">授课导师</span>
                   <div className="font-medium">{selectedRecord.teacherName}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-sm">课程</span>
-                  <div className="font-medium">{selectedRecord.courseName}</div>
+                  <span className="text-gray-500 text-sm">上课时间</span>
+                  <div className="font-medium">{selectedRecord.classDate} {selectedRecord.startTime}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-sm">状态</span>
+                  <span className="text-gray-500 text-sm">下课时间</span>
+                  <div className="font-medium">{selectedRecord.endTime || '-'}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-sm">课程时长</span>
+                  <div className="font-medium">{selectedRecord.actualDuration}分钟</div>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-sm">上课状态</span>
                   <div className="flex items-center gap-2">
                     {getStatusIcon(selectedRecord.attendanceStatus)}
                     <Badge className={getStatusColor(selectedRecord.attendanceStatus)}>
@@ -667,73 +1108,128 @@ export default function ClassRecordsPage() {
                     </Badge>
                   </div>
                 </div>
+              </div>
+
+              {/* 授课内容 */}
+              {selectedRecord.contentSummary && (
                 <div>
-                  <span className="text-gray-500 text-sm">日期</span>
-                  <div className="font-medium">{selectedRecord.classDate} ({selectedRecord.weekDay})</div>
+                  <span className="text-gray-500 text-sm">授课内容</span>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm whitespace-pre-line">
+                    {selectedRecord.contentSummary.split('\n').map((line, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="text-orange-500 font-medium">{i + 1}.</span>
+                        <span>{line}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* 作业信息 */}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedRecord.homeworkCompletionRate !== undefined && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <span className="text-gray-500 text-sm">作业完成度</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Progress value={selectedRecord.homeworkCompletionRate} className="flex-1" />
+                      <span className="font-medium">{selectedRecord.homeworkCompletionRate}%</span>
+                    </div>
+                  </div>
+                )}
+                {selectedRecord.lastHomeworkQuality && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <span className="text-gray-500 text-sm">上节课作业品质</span>
+                    <div className="font-medium mt-1">{selectedRecord.lastHomeworkQuality}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* 导师评语 */}
+              {selectedRecord.teacherFeedback && (
                 <div>
-                  <span className="text-gray-500 text-sm">时间</span>
-                  <div className="font-medium">{selectedRecord.startTime} · {selectedRecord.actualDuration}分钟</div>
+                  <span className="text-gray-500 text-sm">导师评语</span>
+                  <div className="mt-1 p-3 bg-orange-50 rounded-lg text-sm border-l-4 border-orange-400">
+                    {selectedRecord.teacherFeedback}
+                  </div>
+                </div>
+              )}
+
+              {/* 课后作业 */}
+              {selectedRecord.homeworkAssigned && (
+                <div>
+                  <span className="text-gray-500 text-sm">课后作业</span>
+                  <div className="mt-1 p-3 bg-yellow-50 rounded-lg text-sm">
+                    {selectedRecord.homeworkAssigned}
+                    {selectedRecord.homeworkDeadline && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        截止日期：{selectedRecord.homeworkDeadline}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 下次计划 */}
+              {selectedRecord.nextClassPlan && (
+                <div>
+                  <span className="text-gray-500 text-sm">下次课计划</span>
+                  <div className="mt-1 p-3 bg-purple-50 rounded-lg text-sm">
+                    {selectedRecord.nextClassPlan}
+                  </div>
+                </div>
+              )}
+
+              {/* 学生签名 */}
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-gray-500 text-sm">学生签名</span>
+                    {selectedRecord.studentSignature ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <span className="text-green-600">已签名</span>
+                        <span className="text-xs text-gray-400">
+                          {selectedRecord.signatureTime}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 mt-1">待签名</div>
+                    )}
+                  </div>
+                  {!selectedRecord.studentSignature && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleStudentSign(selectedRecord.id)}
+                    >
+                      <PenLine className="h-4 w-4 mr-2" />
+                      学生签名
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {selectedRecord.contentSummary && (
-                <div>
-                  <span className="text-gray-500 text-sm">课程内容</span>
-                  <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
-                    {selectedRecord.contentSummary}
-                  </div>
-                </div>
-              )}
+              {/* 温馨提示 */}
+              <div className="p-3 bg-gray-100 rounded-lg text-xs text-gray-500">
+                <p className="mb-1">温馨提示：</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>因个人原因无法上课的，请务必至少48小时告知教务老师</li>
+                  <li>请导师与学员在课程结束后第一时间完成记录表撰写并签字</li>
+                  <li>请各位学员在下课后当天及时签署，如若三日内未签署也未提出异议的，视为对课时内容的认可</li>
+                </ol>
+              </div>
 
-              {selectedRecord.teachingMethod && (
-                <div>
-                  <span className="text-gray-500 text-sm">教学方式</span>
-                  <div className="mt-1">{selectedRecord.teachingMethod}</div>
-                </div>
-              )}
-
-              {selectedRecord.studentPerformance && (
-                <div>
-                  <span className="text-gray-500 text-sm">学生表现</span>
-                  <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
-                    {selectedRecord.studentPerformance}
-                  </div>
-                </div>
-              )}
-
-              {selectedRecord.homework && (
-                <div>
-                  <span className="text-gray-500 text-sm">课后作业</span>
-                  <div className="mt-1 p-3 bg-orange-50 rounded-lg text-sm">
-                    {selectedRecord.homework}
-                  </div>
-                </div>
-              )}
-
-              {selectedRecord.nextPlan && (
-                <div>
-                  <span className="text-gray-500 text-sm">下次计划</span>
-                  <div className="mt-1 p-3 bg-blue-50 rounded-lg text-sm">
-                    {selectedRecord.nextPlan}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 justify-end pt-4">
-                {selectedRecord.attendanceStatus === '已排课' && (
-                  <>
-                    <Button variant="outline" onClick={() => handleUpdateStatus(selectedRecord.id, '请假')}>
-                      请假
-                    </Button>
-                    <Button variant="destructive" onClick={() => handleUpdateStatus(selectedRecord.id, '缺课')}>
-                      缺课
-                    </Button>
-                    <Button onClick={() => handleUpdateStatus(selectedRecord.id, '已上课')}>
-                      确认完成
-                    </Button>
-                  </>
-                )}
+              {/* 操作按钮 */}
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
+                  关闭
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setDetailDialogOpen(false);
+                  openEditDialog(selectedRecord);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  编辑
+                </Button>
               </div>
             </div>
           )}
