@@ -18,9 +18,15 @@ import {
   Upload,
   Trash2,
   Save,
+  Link as LinkIcon,
+  FileDown,
   Send,
   PenLine,
-  Paperclip
+  Paperclip,
+  Link2,
+  Copy,
+  Download,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,8 +151,10 @@ interface ClassRecord {
   projectPhase?: string;
   phaseContent?: string;
   attachments?: string[];
+  pdfUrl?: string;
   studentSignature?: string;
   signatureTime?: string;
+  signToken?: string;
   createdAt: string;
 }
 
@@ -360,6 +368,49 @@ export default function ClassRecordsPage() {
         variant: 'destructive',
       });
     }
+  };
+
+  // 复制签字链接
+  const handleCopySignLink = async (record: ClassRecord) => {
+    if (!record.signToken) {
+      toast({
+        title: '错误',
+        description: '签字链接未生成，请先保存记录',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    const signUrl = `${window.location.origin}/sign/${record.signToken}`;
+    
+    try {
+      await navigator.clipboard.writeText(signUrl);
+      toast({
+        title: '成功',
+        description: '签字链接已复制到剪贴板',
+      });
+    } catch (error) {
+      console.error('复制失败:', error);
+      toast({
+        title: '错误',
+        description: '复制失败，请手动复制',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 下载PDF
+  const handleDownloadPDF = (record: ClassRecord) => {
+    if (!record.pdfUrl) {
+      toast({
+        title: '提示',
+        description: 'PDF正在生成中，请稍后再试',
+        variant: 'default',
+      });
+      return;
+    }
+    
+    window.open(record.pdfUrl, '_blank');
   };
 
   // 重置表单
@@ -1222,6 +1273,21 @@ AP 学生作品赏析
               <div className="flex gap-2 justify-end pt-4 border-t">
                 <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
                   关闭
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleCopySignLink(selectedRecord)}
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  复制签字链接
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDownloadPDF(selectedRecord)}
+                  disabled={!selectedRecord?.pdfUrl}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  下载PDF
                 </Button>
                 <Button variant="outline" onClick={() => {
                   setDetailDialogOpen(false);

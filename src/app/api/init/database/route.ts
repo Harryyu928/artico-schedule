@@ -19,6 +19,24 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('admin', 'consultant', 'full_time_teacher', 'part_time_teacher', 'student');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE week_day AS ENUM ('周一', '周二', '周三', '周四', '周五', '周六', '周日');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE time_slot AS ENUM ('10:00', '13:00', '15:00', '18:00', '20:00');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE course_category AS ENUM ('F-GD', 'F-TA', 'F-GA', 'F-3D', 'F-AN', 'P-GD', 'P-AN', 'P-GA', 'P-CA', 'P-3DGA');
 EXCEPTION
     WHEN duplicate_object THEN null;
@@ -32,6 +50,36 @@ END $$;
 
 DO $$ BEGIN
     CREATE TYPE reservation_purpose AS ENUM ('填写时间表', '预约上课', '选课指导', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE class_record_status AS ENUM ('已排课', '已完成', '已取消', '学生缺席', '补课');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE project_phase AS ENUM ('Concept', 'Modeling', 'Texturing', 'Lighting', 'Render', 'Portfolio');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE schedule_status AS ENUM ('待确认', '已确认', '已完成', '取消');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE selection_form_status AS ENUM ('草稿', '待审核', '已确认', '已完成');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE selection_item_status AS ENUM ('待排课', '已排课', '已完成', '已取消');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -129,23 +177,71 @@ CREATE TABLE IF NOT EXISTS course_selection_items (
 
 // 创建 class_records 表
 const CREATE_CLASS_RECORDS_TABLE = `
-CREATE TABLE IF NOT EXISTS class_records (
+DROP TABLE IF EXISTS class_records CASCADE;
+CREATE TABLE class_records (
     id VARCHAR(36) PRIMARY KEY,
     record_id VARCHAR(50) NOT NULL UNIQUE,
+    schedule_id VARCHAR(50),
+    
+    -- 基本信息
     student_id VARCHAR(36) NOT NULL,
     teacher_id VARCHAR(36) NOT NULL,
     course_id VARCHAR(36) NOT NULL,
-    schedule_id VARCHAR(36),
+    selection_item_id VARCHAR(36),
+    
+    -- 课程类别与内容
+    course_category VARCHAR(100),
+    course_content_detail VARCHAR(200),
+    
+    -- 上课信息
     class_date DATE NOT NULL,
     week_day week_day NOT NULL,
-    time_slot time_slot NOT NULL,
-    hours INTEGER NOT NULL DEFAULT 2,
-    status class_record_status NOT NULL DEFAULT '待填写',
-    content TEXT,
-    homework TEXT,
-    next_plan TEXT,
+    start_time time_slot NOT NULL,
+    end_time VARCHAR(10),
+    actual_duration INTEGER NOT NULL DEFAULT 120,
+    
+    -- 课程内容
+    content_summary TEXT NOT NULL,
+    teaching_method VARCHAR(100),
+    
+    -- 学生表现
+    student_performance TEXT,
+    attendance_status class_record_status NOT NULL DEFAULT '已排课',
+    
+    -- 作业与反馈
+    homework_assigned TEXT,
+    homework_deadline DATE,
+    homework_completion_rate INTEGER DEFAULT 0,
+    last_homework_quality VARCHAR(50),
+    next_class_plan TEXT,
+    teacher_feedback TEXT,
     student_feedback TEXT,
-    teacher_notes TEXT,
+    
+    -- 项目课特有
+    project_phase project_phase,
+    phase_content TEXT,
+    
+    -- 附件
+    attachments JSONB,
+    
+    -- PDF文件
+    pdf_url VARCHAR(500),
+    pdf_generated_at TIMESTAMP,
+    
+    -- 学生签字
+    student_signature VARCHAR(500),
+    signature_time TIMESTAMP,
+    signature_method VARCHAR(20),
+    
+    -- 签字链接
+    sign_token VARCHAR(64) UNIQUE,
+    sign_token_expires_at TIMESTAMP,
+    sign_link_sent_at TIMESTAMP,
+    sign_link_sent_to VARCHAR(200),
+    
+    -- 记录创建者
+    created_by VARCHAR(36) NOT NULL,
+    
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

@@ -474,7 +474,7 @@ export const classRecords = pgTable('class_records', {
   classDate: date('class_date').notNull(),
   weekDay: weekDayEnum('week_day').notNull(),
   startTime: timeSlotEnum('start_time').notNull(),
-  endTime: timeSlotEnum('end_time'),
+  endTime: varchar('end_time', { length: 10 }), // 结束时间，灵活存储
   actualDuration: integer('actual_duration').notNull().default(120), // 默认120分钟
   
   // 课程内容
@@ -501,9 +501,20 @@ export const classRecords = pgTable('class_records', {
   // 附件
   attachments: jsonb('attachments').$type<string[]>(),
   
-  // 签名（新增）
+  // PDF文件（新增）
+  pdfUrl: varchar('pdf_url', { length: 500 }), // 生成的PDF文件URL
+  pdfGeneratedAt: timestamp('pdf_generated_at'), // PDF生成时间
+  
+  // 学生签字（新增）
   studentSignature: varchar('student_signature', { length: 500 }), // 学生签名（图片URL或时间戳）
   signatureTime: timestamp('signature_time'), // 签名时间
+  signatureMethod: varchar('signature_method', { length: 20 }), // 签名方式：online/offline
+  
+  // 签字链接（新增）
+  signToken: varchar('sign_token', { length: 64 }).unique(), // 签字唯一token
+  signTokenExpiresAt: timestamp('sign_token_expires_at'), // 签字链接过期时间
+  signLinkSentAt: timestamp('sign_link_sent_at'), // 签字链接发送时间
+  signLinkSentTo: varchar('sign_link_sent_to', { length: 200 }), // 发送到的联系方式（手机/邮箱）
   
   // 记录创建者
   createdBy: varchar('created_by', { length: 36 }).notNull(),

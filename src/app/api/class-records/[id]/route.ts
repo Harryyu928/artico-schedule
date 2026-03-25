@@ -1,193 +1,200 @@
+/**
+ * 单个上课记录 API
+ * 
+ * GET    /api/class-records/[id]    - 获取记录详情
+ * PUT    /api/class-records/[id]    - 更新记录
+ * DELETE /api/class-records/[id]    - 删除记录
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { classRecords, students, teachers, courses } from '@/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
-import { v4 as uuidv4 } from 'uuid';
+import { eq } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
-/**
- * GET /api/class-records/[id]
- * 获取上课记录详情
- */
-export async function GET(request: Request, { params }: RouteParams) {
+// GET - 获取单个记录详情
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
-
-    // 模拟数据
-    const mockRecord = {
-      id,
-      recordId: `REC-${id}`,
-      studentId: 'student-1',
-      studentName: '张三',
-      teacherId: 'teacher-1',
-      teacherName: '李老师',
-      courseId: 'course-1',
-      courseName: '选课指导',
-      classDate: '2026-03-24',
-      weekDay: '周二',
-      startTime: '10:00',
-      endTime: '12:00',
-      actualDuration: 120,
-      contentSummary: '介绍了英国游戏设计专业申请要求',
-      teachingMethod: '一对一线上指导',
-      studentPerformance: '学生表现积极',
-      attendanceStatus: '已上课',
-      homework: '调研3所目标院校',
-      nextPlan: '下周继续讨论',
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      const [record] = await db
-        .select()
-        .from(classRecords)
-        .where(eq(classRecords.id, id))
-        .limit(1);
-
-      if (!record) {
-        return NextResponse.json({ error: '记录不存在' }, { status: 404 });
-      }
-
-      // 获取关联信息
-      const [student] = await db
-        .select({ name: students.name })
-        .from(students)
-        .where(eq(students.id, record.studentId))
-        .limit(1);
-
-      const [teacher] = await db
-        .select({ name: teachers.name })
-        .from(teachers)
-        .where(eq(teachers.id, record.teacherId))
-        .limit(1);
-
-      const [course] = await db
-        .select({ name: courses.name })
-        .from(courses)
-        .where(eq(courses.id, record.courseId))
-        .limit(1);
-
-      return NextResponse.json({
-        record: {
-          ...record,
-          studentName: student?.name || '未知学生',
-          teacherName: teacher?.name || '未知导师',
-          courseName: course?.name || '未知课程',
-        },
-      });
-    } catch (dbError: any) {
-      const errorCode = dbError.code || dbError.cause?.code;
-      const errorMessage = dbError.message || dbError.cause?.message || '';
-
-      if (errorCode === '42P01' || errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
-        console.log('数据库表不存在，返回模拟数据');
-        return NextResponse.json({ record: mockRecord });
-      }
-      throw dbError;
+    
+    const record = await db.select({
+      id: classRecords.id,
+      recordId: classRecords.recordId,
+      studentId: classRecords.studentId,
+      teacherId: classRecords.teacherId,
+      courseId: classRecords.courseId,
+      courseCategory: classRecords.courseCategory,
+      courseContentDetail: classRecords.courseContentDetail,
+      classDate: classRecords.classDate,
+      weekDay: classRecords.weekDay,
+      startTime: classRecords.startTime,
+      endTime: classRecords.endTime,
+      actualDuration: classRecords.actualDuration,
+      contentSummary: classRecords.contentSummary,
+      teachingMethod: classRecords.teachingMethod,
+      studentPerformance: classRecords.studentPerformance,
+      attendanceStatus: classRecords.attendanceStatus,
+      homeworkAssigned: classRecords.homeworkAssigned,
+      homeworkDeadline: classRecords.homeworkDeadline,
+      homeworkCompletionRate: classRecords.homeworkCompletionRate,
+      lastHomeworkQuality: classRecords.lastHomeworkQuality,
+      nextClassPlan: classRecords.nextClassPlan,
+      teacherFeedback: classRecords.teacherFeedback,
+      studentFeedback: classRecords.studentFeedback,
+      projectPhase: classRecords.projectPhase,
+      phaseContent: classRecords.phaseContent,
+      attachments: classRecords.attachments,
+      pdfUrl: classRecords.pdfUrl,
+      pdfGeneratedAt: classRecords.pdfGeneratedAt,
+      studentSignature: classRecords.studentSignature,
+      signatureTime: classRecords.signatureTime,
+      signatureMethod: classRecords.signatureMethod,
+      signToken: classRecords.signToken,
+      signTokenExpiresAt: classRecords.signTokenExpiresAt,
+      signLinkSentAt: classRecords.signLinkSentAt,
+      signLinkSentTo: classRecords.signLinkSentTo,
+      createdAt: classRecords.createdAt,
+      updatedAt: classRecords.updatedAt,
+      // 关联信息
+      studentName: students.name,
+      studentPhone: students.phone,
+      studentEmail: students.email,
+      teacherName: teachers.name,
+      teacherEmail: teachers.email,
+      courseName: courses.name,
+    })
+    .from(classRecords)
+    .leftJoin(students, eq(classRecords.studentId, students.id))
+    .leftJoin(teachers, eq(classRecords.teacherId, teachers.id))
+    .leftJoin(courses, eq(classRecords.courseId, courses.id))
+    .where(eq(classRecords.id, id))
+    .limit(1);
+    
+    if (record.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '记录不存在' },
+        { status: 404 }
+      );
     }
+    
+    // 生成签字链接
+    const domain = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'http://localhost:5000';
+    const signLink = record[0].signToken 
+      ? `${domain}/sign/${record[0].signToken}` 
+      : null;
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...record[0],
+        signLink,
+      },
+    });
   } catch (error) {
-    console.error('获取上课记录详情失败:', error);
+    console.error('获取记录详情失败:', error);
     return NextResponse.json(
-      { error: '获取上课记录详情失败' },
+      { success: false, error: '获取记录失败' },
       { status: 500 }
     );
   }
 }
 
-/**
- * PUT /api/class-records/[id]
- * 更新上课记录
- */
-export async function PUT(request: Request, { params }: RouteParams) {
+// PUT - 更新记录
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const body = await request.json();
-
-    // 模拟数据
-    const mockRecord = {
-      id,
-      recordId: `REC-${id}`,
-      studentId: 'student-1',
-      studentName: '张三',
-      teacherId: 'teacher-1',
-      teacherName: '李老师',
-      courseId: 'course-1',
-      courseName: '选课指导',
-      classDate: '2026-03-24',
-      weekDay: '周二',
-      startTime: '10:00',
-      actualDuration: 120,
-      ...body,
-      updatedAt: new Date().toISOString(),
-    };
-
-    try {
-      const updateData: any = { updatedAt: new Date() };
-      if (body.attendanceStatus) updateData.attendanceStatus = body.attendanceStatus;
-      if (body.contentSummary) updateData.contentSummary = body.contentSummary;
-      if (body.teachingMethod) updateData.teachingMethod = body.teachingMethod;
-      if (body.studentPerformance) updateData.studentPerformance = body.studentPerformance;
-      if (body.homework) updateData.homeworkAssigned = body.homework;
-      if (body.nextPlan) updateData.nextClassPlan = body.nextPlan;
-
-      const [record] = await db
-        .update(classRecords)
-        .set(updateData)
-        .where(eq(classRecords.id, id))
-        .returning();
-
-      if (!record) {
-        return NextResponse.json({ error: '记录不存在' }, { status: 404 });
-      }
-
-      return NextResponse.json({ success: true, record });
-    } catch (dbError: any) {
-      const errorCode = dbError.code || dbError.cause?.code;
-      const errorMessage = dbError.message || dbError.cause?.message || '';
-
-      if (errorCode === '42P01' || errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
-        console.log('数据库表不存在，返回模拟成功');
-        return NextResponse.json({ success: true, record: mockRecord });
-      }
-      throw dbError;
+    
+    // 检查记录是否存在
+    const existing = await db.select()
+      .from(classRecords)
+      .where(eq(classRecords.id, id))
+      .limit(1);
+    
+    if (existing.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '记录不存在' },
+        { status: 404 }
+      );
     }
+    
+    // 构建更新数据
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+    
+    // 基本字段更新
+    const updatableFields = [
+      'studentId', 'teacherId', 'courseId',
+      'courseCategory', 'courseContentDetail',
+      'classDate', 'weekDay', 'startTime', 'endTime', 'actualDuration',
+      'contentSummary', 'teachingMethod', 'studentPerformance',
+      'attendanceStatus',
+      'homeworkAssigned', 'homeworkDeadline', 'homeworkCompletionRate', 'lastHomeworkQuality',
+      'nextClassPlan', 'teacherFeedback', 'studentFeedback',
+      'projectPhase', 'phaseContent', 'attachments',
+    ];
+    
+    for (const field of updatableFields) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+    
+    // 签字相关
+    if (body.studentSignature !== undefined) {
+      updateData.studentSignature = body.studentSignature;
+      updateData.signatureTime = new Date();
+      updateData.signatureMethod = body.signatureMethod || 'online';
+    }
+    
+    // 签字链接发送记录
+    if (body.signLinkSentTo !== undefined) {
+      updateData.signLinkSentTo = body.signLinkSentTo;
+      updateData.signLinkSentAt = new Date();
+    }
+    
+    await db.update(classRecords)
+      .set(updateData)
+      .where(eq(classRecords.id, id));
+    
+    return NextResponse.json({
+      success: true,
+      message: '更新成功',
+    });
   } catch (error) {
-    console.error('更新上课记录失败:', error);
+    console.error('更新记录失败:', error);
     return NextResponse.json(
-      { error: '更新上课记录失败' },
+      { success: false, error: '更新记录失败' },
       { status: 500 }
     );
   }
 }
 
-/**
- * DELETE /api/class-records/[id]
- * 删除上课记录
- */
-export async function DELETE(request: Request, { params }: RouteParams) {
+// DELETE - 删除记录
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
-
-    try {
-      await db.delete(classRecords).where(eq(classRecords.id, id));
-      return NextResponse.json({ success: true });
-    } catch (dbError: any) {
-      const errorCode = dbError.code || dbError.cause?.code;
-      const errorMessage = dbError.message || dbError.cause?.message || '';
-
-      if (errorCode === '42P01' || errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
-        console.log('数据库表不存在，返回模拟成功');
-        return NextResponse.json({ success: true });
-      }
-      throw dbError;
-    }
+    
+    await db.delete(classRecords).where(eq(classRecords.id, id));
+    
+    return NextResponse.json({
+      success: true,
+      message: '删除成功',
+    });
   } catch (error) {
-    console.error('删除上课记录失败:', error);
+    console.error('删除记录失败:', error);
     return NextResponse.json(
-      { error: '删除上课记录失败' },
+      { success: false, error: '删除记录失败' },
       { status: 500 }
     );
   }
