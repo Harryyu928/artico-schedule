@@ -213,7 +213,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-orange-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       {/* 移动端侧边栏遮罩 */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -227,10 +227,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {/* 侧边栏 */}
+      {/* 侧边栏 - 毛玻璃效果优化 */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-xl transition-transform duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 w-64 border-r transition-transform duration-300 ease-in-out",
+          "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl",
+          "border-slate-300/80 dark:border-slate-700/80",
+          "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_0_20px_rgba(0,0,0,0.05)]",
+          "dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_20px_rgba(0,0,0,0.15)]",
           "lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -241,7 +245,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="flex items-center justify-between h-16 px-6 border-b border-slate-200 dark:border-slate-700"
+            className="flex items-center justify-between h-16 px-6 border-b border-slate-200/80 dark:border-slate-700/80 bg-white/50 dark:bg-slate-800/50"
           >
             <Link href="/" className="flex items-center gap-2 group">
               <motion.div 
@@ -280,7 +284,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-slate-700 dark:to-slate-700"
+              className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-orange-100/80 to-amber-50/80 dark:from-slate-800/80 dark:to-slate-800/80 backdrop-blur-sm"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -389,7 +393,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+            className="p-4 border-t border-slate-200/60 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm"
           >
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mb-2">
               <motion.div 
@@ -408,11 +412,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* 主内容区域 */}
       <div className="lg:pl-64">
-        {/* 顶部栏 */}
+        {/* 顶部栏 - 毛玻璃效果优化 */}
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="sticky top-0 z-30 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm"
+          className="sticky top-0 z-30 border-b backdrop-blur-xl bg-white/92 dark:bg-slate-900/92 border-slate-300/80 dark:border-slate-700/80 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.1),0_1px_3px_rgba(0,0,0,0.05)]"
         >
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* 左侧：移动端菜单按钮 + 快捷操作 */}
@@ -468,7 +472,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="hidden md:block border-t border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-2.5 bg-slate-50 dark:bg-slate-800"
+            className="hidden md:block border-t border-slate-200/60 dark:border-slate-700/60 px-4 sm:px-6 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm"
           >
             <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
               <span className="text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-1">
