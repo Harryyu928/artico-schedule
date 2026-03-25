@@ -166,15 +166,23 @@ export default function AvailabilityPage() {
       setLoadingUsers(true);
       const response = await fetch('/api/students');
       const data = await response.json();
-      setStudents(data.students || []);
-      setSelectedUserId('');
+      // API 可能返回数组或 { students: [...] } 格式
+      const studentList = Array.isArray(data) ? data : (data.students || []);
+      setStudents(studentList);
+      // 自动选择第一个学生
+      if (studentList.length > 0) {
+        setSelectedUserId(studentList[0].id);
+      }
     } catch (error) {
       console.error('获取学生列表失败:', error);
-      setStudents([
+      // 使用模拟数据
+      const mockStudents = [
         { id: 'student-1', name: '张三', studentId: '2026001', major: '游戏设计' },
         { id: 'student-2', name: '李四', studentId: '2026002', major: '交互设计' },
         { id: 'student-3', name: '王五', studentId: '2026003', major: '动画设计' },
-      ]);
+      ];
+      setStudents(mockStudents);
+      setSelectedUserId(mockStudents[0].id);
     } finally {
       setLoadingUsers(false);
     }
@@ -185,15 +193,23 @@ export default function AvailabilityPage() {
       setLoadingUsers(true);
       const response = await fetch('/api/teachers');
       const data = await response.json();
-      setTeachers(data.teachers || []);
-      setSelectedUserId('');
+      // API 直接返回数组，也可能是 { teachers: [...] } 格式
+      const teacherList = Array.isArray(data) ? data : (data.teachers || []);
+      setTeachers(teacherList);
+      // 自动选择第一个导师
+      if (teacherList.length > 0) {
+        setSelectedUserId(teacherList[0].id);
+      }
     } catch (error) {
       console.error('获取导师列表失败:', error);
-      setTeachers([
+      // 使用模拟数据
+      const mockTeachers = [
         { id: 'teacher-1', name: '李老师', teacherId: 'T001', teachableCourses: ['F-GD', 'V-GD'] },
         { id: 'teacher-2', name: '王老师', teacherId: 'T002', teachableCourses: ['F-IA', 'V-IA'] },
         { id: 'teacher-3', name: '张老师', teacherId: 'T003', teachableCourses: ['F-AN', 'V-AN'] },
-      ]);
+      ];
+      setTeachers(mockTeachers);
+      setSelectedUserId(mockTeachers[0].id);
     } finally {
       setLoadingUsers(false);
     }
