@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { format, parseISO, addDays, startOfWeek, addWeeks } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock,
   Save,
@@ -22,6 +23,7 @@ import {
   Trash2,
   Sparkles,
   Info,
+  Wand2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -54,6 +56,42 @@ import {
   UserSelectSkeleton 
 } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+
+// 动画配置
+const fadeInUp = {
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -30 },
+  transition: { duration: 0.4, ease: [0.175, 0.885, 0.32, 1.275] }
+};
+
+const fadeInScale = {
+  initial: { opacity: 0, scale: 0.9 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.9 },
+  transition: { duration: 0.3, ease: 'easeOut' }
+};
+
+const slideInRight = {
+  initial: { opacity: 0, x: 50 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -50 },
+  transition: { duration: 0.4, ease: 'easeOut' }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const staggerItem = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3 }
+};
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const weekDaysForCalc = [1, 2, 3, 4, 5, 6, 0]; // JavaScript getDay() 格式
@@ -659,38 +697,71 @@ export default function AvailabilityPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       {/* 页面标题 */}
-      <div className="flex justify-between items-center">
+      <motion.div 
+        className="flex justify-between items-center"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.4 }}
+      >
         <div>
-          <h1 className="text-3xl font-bold">时间设置</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            时间设置
+          </h1>
           <p className="text-gray-500 mt-1">设置可用时间段和临时时间调整</p>
         </div>
-        <div className="flex gap-2">
+        <motion.div 
+          className="flex gap-2"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+        >
           {userType === 'teacher' && selectedUserId && (
             <Button
               variant="outline"
-              onClick={() => setShowCreateDialog(true)}
-              className="border-orange-300 text-orange-600 hover:bg-orange-50"
+              onClick={() => {
+                resetTimeBlockForm();
+                setShowCreateDialog(true);
+              }}
+              className="border-orange-300 text-orange-600 hover:bg-orange-50 btn-glow ripple relative overflow-hidden"
             >
               <Plus className="mr-2 h-4 w-4" />
               添加临时调整
             </Button>
           )}
-          <Button onClick={handleSave} disabled={loading || !selectedUserId}>
+          <Button 
+            onClick={handleSave} 
+            disabled={loading || !selectedUserId}
+            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25 btn-glow ripple"
+          >
             <Save className="mr-2 h-4 w-4" />
             {loading ? '保存中...' : '保存时间表'}
           </Button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* 用户选择 */}
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle>选择用户</CardTitle>
-          <CardDescription>选择要设置时间的用户类型和具体用户</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-amber-500/5 pointer-events-none" />
+          <CardHeader className="relative bg-gradient-to-r from-gray-50 to-gray-100">
+            <CardTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-orange-500" />
+              选择用户
+            </CardTitle>
+            <CardDescription>选择要设置时间的用户类型和具体用户</CardDescription>
+          </CardHeader>
+          <CardContent className="relative">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">用户类型</label>
@@ -747,280 +818,447 @@ export default function AvailabilityPage() {
           </div>
           
           {selectedUserId && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                  <Check className="h-5 w-5 text-white" />
-                </div>
+            <motion.div 
+              className="mt-4 p-5 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 rounded-2xl border border-orange-100 flex items-center justify-between relative overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.175, 0.885, 0.32, 1.275] }}
+            >
+              {/* 装饰性背景 */}
+              <div className="absolute inset-0 opacity-30">
+                <div className="absolute top-0 left-0 w-32 h-32 bg-orange-200 rounded-full blur-3xl" />
+                <div className="absolute bottom-0 right-0 w-40 h-40 bg-amber-200 rounded-full blur-3xl" />
+              </div>
+              
+              <div className="flex items-center gap-4 relative">
+                <motion.div 
+                  className="h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Check className="h-6 w-6 text-white" />
+                </motion.div>
                 <div>
-                  <span className="text-sm text-gray-600">已选择</span>
-                  <p className="font-semibold text-gray-800">{getSelectedUserName()}</p>
+                  <span className="text-sm text-gray-500">已选择</span>
+                  <p className="font-bold text-lg text-gray-800">{getSelectedUserName()}</p>
                 </div>
               </div>
-              <div className="flex gap-4 text-sm">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
-                  <Clock className="h-4 w-4 text-green-600" />
-                  <span className="text-green-700 font-medium">{availableCount}</span>
-                  <span className="text-green-600">个时段</span>
-                </div>
+              <div className="flex gap-3 relative">
+                <motion.div 
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  transition={{ type: 'spring', stiffness: 400 }}
+                >
+                  <Clock className="h-5 w-5 text-green-600" />
+                  <span className="text-green-700 font-bold text-lg">{availableCount}</span>
+                  <span className="text-green-600 text-sm">个时段</span>
+                </motion.div>
                 {userType === 'teacher' && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
-                    <CalendarX2 className="h-4 w-4 text-orange-600" />
-                    <span className="text-orange-700 font-medium">{activeTimeBlocks}</span>
-                    <span className="text-orange-600">条调整</span>
-                  </div>
+                  <motion.div 
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 shadow-sm"
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  >
+                    <CalendarX2 className="h-5 w-5 text-orange-600" />
+                    <span className="text-orange-700 font-bold text-lg">{activeTimeBlocks}</span>
+                    <span className="text-orange-600 text-sm">条调整</span>
+                  </motion.div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* 主内容 - 标签页 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md bg-orange-50 p-1">
-          <TabsTrigger 
-            value="schedule" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
-          >
-            <Clock className="h-4 w-4" />
-            周时间表
-          </TabsTrigger>
-          <TabsTrigger 
-            value="calendar" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
-          >
-            <CalendarDays className="h-4 w-4" />
-            月历视图
-          </TabsTrigger>
-        </TabsList>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+      >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="relative">
+          {/* 华丽的标签页切换器 */}
+          <TabsList className="grid w-full max-w-md grid-cols-2 bg-white/80 backdrop-blur-xl p-1.5 rounded-2xl shadow-lg border border-gray-100 relative overflow-hidden">
+            {/* 滑动指示器 */}
+            <motion.div
+              className="absolute top-1.5 h-[calc(100%-12px)] w-[calc(50%-6px)] bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl shadow-lg shadow-orange-500/25"
+              animate={{
+                left: activeTab === 'schedule' ? '6px' : 'calc(50%)',
+              }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            />
+            
+            <TabsTrigger 
+              value="schedule" 
+              className="flex items-center gap-2 relative z-10 py-3 transition-colors duration-300 data-[state=active]:text-white"
+            >
+              <Clock className="h-4 w-4" />
+              <span className="font-medium">周时间表</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="calendar" 
+              className="flex items-center gap-2 relative z-10 py-3 transition-colors duration-300 data-[state=active]:text-white"
+            >
+              <CalendarDays className="h-4 w-4" />
+              <span className="font-medium">月历视图</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* 周时间表 */}
-        <TabsContent value="schedule" className="space-y-6 mt-6">
-          {/* 快速设置 */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-lg">
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-orange-500" />
-                快速设置
-              </CardTitle>
-              <CardDescription>一键设置常用时间段组合</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="flex gap-2 flex-wrap">
-                <Button 
-                  variant="outline" 
-                  onClick={quickSetWorkdays} 
-                  disabled={!selectedUserId}
-                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+          {/* 周时间表 */}
+          <TabsContent value="schedule" className="space-y-6 mt-6 focus-visible:outline-none">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+                {/* 快速设置 */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                 >
-                  工作日全天
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={quickSetWeekends} 
-                  disabled={!selectedUserId}
-                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
-                >
-                  周末全天
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={quickSetEvenings} 
-                  disabled={!selectedUserId}
-                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
-                >
-                  晚间时段
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={clearAll} 
-                  disabled={!selectedUserId}
-                  className="hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                >
-                  清空全部
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 时间表 */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>可用时间表</CardTitle>
-                  <CardDescription className="mt-1">
-                    点击时间段切换可用状态，绿色表示可用
-                  </CardDescription>
-                </div>
-                <Badge variant="outline" className="text-base px-4 py-2 bg-orange-50">
-                  已选 {availableCount} 个时间段
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse min-w-[700px]">
-                  <thead>
-                    <tr>
-                      <th className="p-2 border bg-gray-50 dark:bg-gray-800 w-24">时间段</th>
-                      {weekDays.map(day => (
-                        <th key={day} className="p-2 border bg-gray-50 dark:bg-gray-800 text-center font-medium">
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {timeSlots.map(time => (
-                      <tr key={time}>
-                        <td className="p-2 border bg-gray-50 dark:bg-gray-800 font-medium text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Clock className="h-3 w-3 text-gray-400" />
-                            {time}
-                          </div>
-                        </td>
-                        {weekDays.map(day => {
-                          const slot = availability.find(s => s.weekDay === day && s.timeSlot === time);
-                          return (
-                            <td
-                              key={`${day}-${time}`}
-                              className={`p-1 border text-center cursor-pointer transition-all ${
-                                !selectedUserId ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                              }`}
-                              onClick={() => selectedUserId && toggleSlot(slot?.id || `${day}-${time}`)}
+                  <Card className="border-0 shadow-lg overflow-hidden card-hover">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
+                      <CardTitle className="flex items-center gap-2">
+                        <motion.div
+                          animate={{ rotate: [0, 10, -10, 0] }}
+                          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                        >
+                          <Sparkles className="h-5 w-5 text-orange-500" />
+                        </motion.div>
+                        快速设置
+                      </CardTitle>
+                      <CardDescription>一键设置常用时间段组合</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-5">
+                      <div className="flex gap-3 flex-wrap">
+                        {[
+                          { label: '工作日全天', action: quickSetWorkdays, icon: '🏢' },
+                          { label: '周末全天', action: quickSetWeekends, icon: '🌴' },
+                          { label: '晚间时段', action: quickSetEvenings, icon: '🌙' },
+                          { label: '清空全部', action: clearAll, icon: '🗑️', variant: 'destructive' },
+                        ].map((btn, index) => (
+                          <motion.div
+                            key={btn.label}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.1 + index * 0.05 }}
+                            whileHover={{ scale: 1.05, y: -3 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <Button 
+                              variant="outline" 
+                              onClick={btn.action} 
+                              disabled={!selectedUserId}
+                              className={cn(
+                                "relative overflow-hidden transition-all duration-300",
+                                btn.variant === 'destructive' 
+                                  ? "hover:bg-red-50 hover:text-red-600 hover:border-red-300" 
+                                  : "hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 hover:shadow-md hover:shadow-orange-500/10"
+                              )}
                             >
-                              <div
-                                className={`w-full h-12 rounded-md flex items-center justify-center transition-all ${
-                                  slot?.isAvailable
-                                    ? 'bg-gradient-to-br from-green-400 to-green-500 text-white shadow-md'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200'
-                                }`}
+                              <span className="mr-1.5">{btn.icon}</span>
+                              {btn.label}
+                            </Button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* 时间表 */}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <Card className="border-0 shadow-lg overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-white to-gray-50">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-orange-500" />
+                            可用时间表
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            点击时间段切换可用状态，绿色表示可用
+                          </CardDescription>
+                        </div>
+                        <motion.div
+                          key={availableCount}
+                          initial={{ scale: 1.2, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-2 rounded-xl border border-orange-100 shadow-sm"
+                        >
+                          <span className="text-orange-700 font-bold text-lg">{availableCount}</span>
+                          <span className="text-orange-600 text-sm ml-1">个时间段</span>
+                        </motion.div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="overflow-x-auto rounded-xl border border-gray-200">
+                        <table className="w-full border-collapse min-w-[700px]">
+                          <thead>
+                            <tr>
+                              <th className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-r font-semibold text-gray-600 w-24">
+                                时间
+                              </th>
+                              {weekDays.map((day, i) => (
+                                <th 
+                                  key={day} 
+                                  className={cn(
+                                    "p-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b text-center font-semibold",
+                                    (i === 5 || i === 6) && "text-red-500",
+                                    i !== 6 && "border-r"
+                                  )}
+                                >
+                                  {day}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {timeSlots.map((time, rowIndex) => (
+                              <motion.tr 
+                                key={time}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 + rowIndex * 0.03 }}
                               >
-                                {slot?.isAvailable ? (
-                                  <Check className="h-5 w-5" />
-                                ) : (
-                                  <span className="text-lg">—</span>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {!selectedUserId && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center text-gray-500">
-                  请先在上方选择一个用户，然后设置该用户的可用时间
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                                <td className="p-2 bg-gray-50 border-b border-r text-center font-medium">
+                                  <div className="flex items-center justify-center gap-1.5 text-gray-600">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    {time}
+                                  </div>
+                                </td>
+                                {weekDays.map((day, colIndex) => {
+                                  const slot = availability.find(s => s.weekDay === day && s.timeSlot === time);
+                                  return (
+                                    <td
+                                      key={`${day}-${time}`}
+                                      className={cn(
+                                        "p-1.5 border-b text-center cursor-pointer transition-all",
+                                        !selectedUserId ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50',
+                                        colIndex !== 6 && "border-r"
+                                      )}
+                                      onClick={() => selectedUserId && toggleSlot(slot?.id || `${day}-${time}`)}
+                                    >
+                                      <motion.div
+                                        className={cn(
+                                          "w-full h-12 rounded-lg flex items-center justify-center transition-all",
+                                          slot?.isAvailable
+                                            ? "bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-lg shadow-green-500/30"
+                                            : "bg-gray-50 text-gray-300 border border-gray-100 hover:border-gray-200"
+                                        )}
+                                        whileHover={selectedUserId ? { scale: 1.05 } : {}}
+                                        whileTap={selectedUserId ? { scale: 0.95 } : {}}
+                                      >
+                                        {slot?.isAvailable ? (
+                                          <motion.div
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ type: 'spring', stiffness: 500 }}
+                                          >
+                                            <Check className="h-5 w-5" />
+                                          </motion.div>
+                                        ) : (
+                                          <span className="text-lg">—</span>
+                                        )}
+                                      </motion.div>
+                                    </td>
+                                  );
+                                })}
+                              </motion.tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {!selectedUserId && (
+                        <motion.div 
+                          className="mt-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl text-center"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <Users className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+                          <p className="text-gray-500">请先在上方选择一个用户，然后设置该用户的可用时间</p>
+                        </motion.div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </motion.div>
+          </TabsContent>
+          
+          {/* 月历视图 */}
+          <TabsContent value="calendar" className="mt-6 focus-visible:outline-none">
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+                <div className="grid gap-6 lg:grid-cols-4">
+                  {/* 日历主区域 */}
+                  <div className="lg:col-span-3">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      <Card className="border-0 shadow-xl overflow-hidden">
+                        <CardHeader className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white relative overflow-hidden">
+                          {/* 装饰性动画背景 */}
+                          <div className="absolute inset-0 opacity-20">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl animate-float" />
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200 rounded-full blur-2xl animate-float" style={{ animationDelay: '1s' }} />
+                          </div>
+                          
+                          <CardTitle className="flex items-center gap-2 relative">
+                            <motion.div
+                              animate={{ rotate: [0, 5, -5, 0] }}
+                              transition={{ duration: 3, repeat: Infinity }}
+                            >
+                              <CalendarIcon className="h-5 w-5" />
+                            </motion.div>
+                            月视图日历
+                          </CardTitle>
+                          <CardDescription className="text-orange-100 relative">
+                            查看可用时间和临时调整，点击日期可快速添加
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          {selectedUserId ? (
+                            <MonthCalendar
+                              events={calendarEvents}
+                              onDateClick={handleDateClick}
+                              onDateRangeSelect={userType === 'teacher' ? handleDateRangeSelect : undefined}
+                            />
+                          ) : (
+                            <div className="p-16 text-center bg-gradient-to-b from-gray-50 to-white">
+                              <motion.div
+                                animate={{ y: [0, -10, 0] }}
+                                transition={{ duration: 3, repeat: Infinity }}
+                              >
+                                <CalendarIcon className="h-20 w-20 mx-auto mb-4 text-gray-200" />
+                              </motion.div>
+                              <p className="text-lg text-gray-400">请先选择用户查看日历</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </div>
 
-        {/* 月历视图 */}
-        <TabsContent value="calendar" className="mt-6">
-          <div className="grid gap-6 lg:grid-cols-4">
-            {/* 日历主区域 */}
-            <div className="lg:col-span-3">
-              <Card className="border-2 border-orange-100 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-lg">
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarIcon className="h-5 w-5" />
-                    月视图日历
-                  </CardTitle>
-                  <CardDescription className="text-orange-100">
-                    查看可用时间和临时调整，点击日期可快速添加
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {selectedUserId ? (
-                    <MonthCalendar
-                      events={calendarEvents}
-                      onDateClick={handleDateClick}
-                      onDateRangeSelect={userType === 'teacher' ? handleDateRangeSelect : undefined}
-                    />
-                  ) : (
-                    <div className="p-12 text-center text-gray-400">
-                      <CalendarIcon className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg">请先选择用户查看日历</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 右侧边栏 */}
-            <div className="space-y-4">
-              {/* 图例说明 */}
-              <Card className="bg-gray-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">图例说明</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-green-500" />
-                    <span>可排课时间</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-red-200 border border-red-300" />
-                    <span>不可排课（临时调整）</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-orange-200 border border-orange-300" />
-                    <span>已排课程</span>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* 右侧边栏 */}
+                  <motion.div 
+                    className="space-y-4"
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    {/* 图例说明 */}
+                    <Card className="bg-gradient-to-br from-gray-50 to-white border-0 shadow-lg overflow-hidden">
+                      <CardHeader className="pb-2 bg-gradient-to-r from-gray-100 to-gray-50">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Info className="h-4 w-4 text-orange-500" />
+                          图例说明
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 text-sm space-y-3">
+                        {[
+                          { color: 'bg-gradient-to-r from-green-400 to-emerald-500', label: '可排课时间', shadow: 'shadow-green-500/30' },
+                          { color: 'bg-gradient-to-r from-red-200 to-red-300 border border-red-300', label: '不可排课', shadow: '' },
+                          { color: 'bg-gradient-to-r from-orange-200 to-amber-200 border border-orange-300', label: '已排课程', shadow: '' },
+                        ].map((item, i) => (
+                          <motion.div 
+                            key={item.label}
+                            className="flex items-center gap-3"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 + i * 0.1 }}
+                          >
+                            <div className={cn("w-5 h-5 rounded-md shadow-sm", item.color, item.shadow)} />
+                            <span className="text-gray-600">{item.label}</span>
+                          </motion.div>
+                        ))}
+                      </CardContent>
+                    </Card>
 
               {/* 导师专属：临时调整列表 */}
               {userType === 'teacher' && selectedUserId && (
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
+                <Card className="border-0 shadow-lg overflow-hidden">
+                  <CardHeader className="pb-2 bg-gradient-to-r from-orange-50 to-amber-50">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <CalendarX2 className="h-4 w-4 text-orange-500" />
+                      <motion.div
+                        animate={{ scale: [1, 1.1, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <CalendarX2 className="h-4 w-4 text-orange-500" />
+                      </motion.div>
                       临时时间调整
                       {activeTimeBlocks > 0 && (
-                        <Badge variant="secondary" className="ml-auto bg-orange-100 text-orange-700">
-                          {activeTimeBlocks} 条
-                        </Badge>
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: 'spring' }}
+                        >
+                          <Badge variant="secondary" className="ml-auto bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border-orange-200">
+                            {activeTimeBlocks} 条
+                          </Badge>
+                        </motion.div>
                       )}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-4">
                     {activeTimeBlocks === 0 ? (
-                      <div className="text-center py-8 text-gray-400">
-                        <CalendarX2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">暂无时间调整</p>
-                        <Button
-                          size="sm"
-                          className="mt-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                          onClick={() => {
-                            resetTimeBlockForm();
-                            setShowCreateDialog(true);
-                          }}
+                      <motion.div 
+                        className="text-center py-10"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <motion.div
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
                         >
-                          <Plus className="mr-1 h-4 w-4" />
-                          添加调整
-                        </Button>
-                      </div>
+                          <CalendarX2 className="h-14 w-14 mx-auto mb-4 text-gray-200" />
+                        </motion.div>
+                        <p className="text-sm text-gray-400">暂无时间调整</p>
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Button
+                            size="sm"
+                            className="mt-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25 btn-glow"
+                            onClick={() => {
+                              resetTimeBlockForm();
+                              setShowCreateDialog(true);
+                            }}
+                          >
+                            <Plus className="mr-1 h-4 w-4" />
+                            添加调整
+                          </Button>
+                        </motion.div>
+                      </motion.div>
                     ) : (
                       <div className="space-y-2">
                         {timeBlocks
                           .filter(b => b.status === 'confirmed')
                           .slice(0, 5)
-                          .map(block => (
-                            <div
+                          .map((block, index) => (
+                            <motion.div
                               key={block.id}
-                              className="group flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 border border-orange-100 hover:border-orange-200 transition-all"
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              whileHover={{ scale: 1.02, x: 5 }}
+                              className="group flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-100 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer"
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-sm font-semibold text-orange-700">
+                                  <p className="text-sm font-bold text-orange-700">
                                     {format(parseISO(block.startDate), 'MM-dd')}
                                     {block.startDate !== block.endDate && (
                                       <span> ~ {format(parseISO(block.endDate), 'MM-dd')}</span>
@@ -1029,11 +1267,11 @@ export default function AvailabilityPage() {
                                   <Badge 
                                     variant="outline" 
                                     className={cn(
-                                      "text-xs",
-                                      block.blockType === 'meeting' && "border-blue-300 text-blue-600",
-                                      block.blockType === 'leave' && "border-purple-300 text-purple-600",
-                                      block.blockType === 'temporary_unavailable' && "border-red-300 text-red-600",
-                                      block.blockType === 'training' && "border-green-300 text-green-600",
+                                      "text-xs font-medium",
+                                      block.blockType === 'meeting' && "border-blue-300 text-blue-600 bg-blue-50",
+                                      block.blockType === 'leave' && "border-purple-300 text-purple-600 bg-purple-50",
+                                      block.blockType === 'temporary_unavailable' && "border-red-300 text-red-600 bg-red-50",
+                                      block.blockType === 'training' && "border-green-300 text-green-600 bg-green-50",
                                     )}
                                   >
                                     {BLOCK_TYPES.find(t => t.value === block.blockType)?.label || '其他'}
@@ -1041,32 +1279,40 @@ export default function AvailabilityPage() {
                                 </div>
                                 <p className="text-xs text-gray-500 truncate mt-0.5">{block.reason}</p>
                               </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-100"
-                                  onClick={() => handleEditTimeBlock(block)}
-                                  title="编辑"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
-                                  onClick={() => handleCancelTimeBlock(block.id)}
-                                  title="删除"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-100"
+                                    onClick={() => handleEditTimeBlock(block)}
+                                    title="编辑"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                </motion.div>
+                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                    onClick={() => handleCancelTimeBlock(block.id)}
+                                    title="删除"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </motion.div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
                         {timeBlocks.filter(b => b.status === 'confirmed').length > 5 && (
-                          <p className="text-xs text-center text-gray-400 pt-2">
+                          <motion.p 
+                            className="text-xs text-center text-gray-400 pt-2"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
                             还有 {timeBlocks.filter(b => b.status === 'confirmed').length - 5} 条记录...
-                          </p>
+                          </motion.p>
                         )}
                       </div>
                     )}
@@ -1076,17 +1322,30 @@ export default function AvailabilityPage() {
 
               {/* 提示信息 */}
               {userType === 'teacher' && selectedUserId && (
-                <Alert className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
-                  <Sparkles className="h-4 w-4 text-orange-500" />
-                  <AlertDescription className="text-sm text-orange-700">
-                    <strong>提示：</strong>点击日历中的日期可快速添加临时时间调整，按住拖动可选择日期范围
-                  </AlertDescription>
-                </Alert>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Alert className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 shadow-sm">
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <Sparkles className="h-4 w-4 text-orange-500" />
+                    </motion.div>
+                    <AlertDescription className="text-sm text-orange-700">
+                      <strong>提示：</strong>点击日历中的日期可快速添加临时时间调整，按住拖动可选择日期范围
+                    </AlertDescription>
+                  </Alert>
+                </motion.div>
               )}
-            </div>
+            </motion.div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </motion.div>
+      </TabsContent>
+    </Tabs>
+  </motion.div>
 
       {/* 创建/编辑时间调整对话框 */}
       <Dialog open={showCreateDialog} onOpenChange={(open) => {
@@ -1271,6 +1530,6 @@ export default function AvailabilityPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }
