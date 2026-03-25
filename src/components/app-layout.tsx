@@ -25,6 +25,9 @@ import {
   History,
   Shield,
   Sparkles,
+  Upload,
+  MessageSquare,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -88,6 +91,8 @@ const navigationGroups: NavGroup[] = [
     title: '排课安排',
     items: [
       { name: '时间设置', href: '/availability', icon: Clock, description: '设置可用时间段' },
+      { name: '学生时间表', href: '/time-table/student', icon: CalendarDays, description: '学生每周可用时间' },
+      { name: '导师时间表', href: '/time-table/teacher', icon: CalendarDays, description: '导师每周可用时间' },
       { name: '排课管理', href: '/schedules', icon: Calendar, description: '自动/手动排课' },
     ]
   },
@@ -104,6 +109,13 @@ const navigationGroups: NavGroup[] = [
       { name: '课酬统计', href: '/salary', icon: Receipt, description: '导师课酬统计与报表' },
     ],
     minRole: '规划顾问',
+  },
+  {
+    title: '数据集成',
+    items: [
+      { name: '数据导入', href: '/import', icon: Upload, description: '批量导入学生/导师/课程' },
+      { name: '飞书集成', href: '/feishu', icon: MessageSquare, description: '飞书消息/日历/多维表格同步' },
+    ]
   },
   {
     title: '系统管理',
