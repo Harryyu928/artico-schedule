@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Users, 
@@ -23,6 +24,7 @@ import {
   Zap,
   History,
   Shield,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -148,6 +150,30 @@ function filterNavGroups(groups: NavGroup[], userRole: UserRole): NavGroup[] {
     .filter(group => group.items.length > 0);
 }
 
+// 动画变体
+const sidebarVariants = {
+  open: {
+    x: 0,
+    transition: { type: 'spring' as const, stiffness: 300, damping: 30 }
+  },
+  closed: {
+    x: '-100%',
+    transition: { type: 'spring' as const, stiffness: 300, damping: 30 }
+  }
+};
+
+const navItemVariants = {
+  initial: { opacity: 0, x: -10 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -10 }
+};
+
+const contentVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 }
+};
+
 // 主布局组件
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -155,11 +181,16 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     navigationGroups.map(g => g.title)
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const { user } = useUser();
 
   // 根据用户角色过滤导航
   const visibleNavGroups = user ? filterNavGroups(navigationGroups, user.role) : [];
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleGroup = (title: string) => {
     setExpandedGroups(prev => 
@@ -170,29 +201,52 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* 移动端侧边栏遮罩 */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* 侧边栏 */}
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
+      <motion.aside
+        initial={false}
+        animate={sidebarOpen ? 'open' : 'closed'}
+        variants={sidebarVariants}
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl lg:translate-x-0 lg:shadow-xl",
+          "lg:animate-none"
+        )}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 gradient-orange rounded-xl flex items-center justify-center shadow-orange">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-center justify-between h-16 px-6 border-b border-gray-200/50 dark:border-gray-700/50"
+          >
+            <Link href="/" className="flex items-center gap-2 group">
+              <motion.div 
+                whileHover={{ scale: 1.05, rotate: 5 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
+                style={{ 
+                  background: 'linear-gradient(135deg, oklch(0.65 0.22 50), oklch(0.6 0.2 45))',
+                  boxShadow: '0 4px 15px oklch(0.65 0.22 50 / 0.35)'
+                }}
+              >
                 <span className="text-white font-bold text-base">A</span>
-              </div>
+              </motion.div>
               <div className="flex flex-col">
-                <span className="font-bold text-base text-gray-900 dark:text-white leading-tight">
+                <span className="font-bold text-base bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                   ARTiCO
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
@@ -208,18 +262,26 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             >
               <X className="w-5 h-5" />
             </Button>
-          </div>
+          </motion.div>
 
           {/* 用户信息条 */}
           {user && (
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50/50 to-amber-50/50 dark:from-gray-800/50 dark:to-gray-800/50"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                    <span className="text-sm font-medium text-orange-600">
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-md"
+                  >
+                    <span className="text-sm font-medium text-white">
                       {user.name.charAt(0)}
                     </span>
-                  </div>
+                  </motion.div>
                   <div>
                     <p className="text-sm font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.role}</p>
@@ -227,83 +289,134 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
                 <Shield className="w-4 h-4 text-muted-foreground" />
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* 导航菜单 - 分组显示 */}
           <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
-            {visibleNavGroups.map((group) => (
-              <div key={group.title} className="space-y-1">
+            {visibleNavGroups.map((group, groupIndex) => (
+              <motion.div
+                key={group.title}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + groupIndex * 0.05 }}
+                className="space-y-1"
+              >
                 {/* 分组标题 */}
-                <button
+                <motion.button
                   onClick={() => toggleGroup(group.title)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-gray-600 dark:hover:text-gray-400"
+                  whileHover={{ x: 2 }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
                 >
                   <span>{group.title}</span>
-                  {expandedGroups.includes(group.title) ? (
+                  <motion.div
+                    animate={{ rotate: expandedGroups.includes(group.title) ? 0 : -90 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <ChevronDown className="w-3 h-3" />
-                  ) : (
-                    <ChevronRight className="w-3 h-3" />
-                  )}
-                </button>
+                  </motion.div>
+                </motion.button>
                 
                 {/* 分组内的导航项 */}
-                {expandedGroups.includes(group.title) && (
-                  <div className="space-y-1">
-                    {group.items.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                            isActive
-                              ? "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 border-l-2 border-orange-500"
-                              : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                          )}
-                          onClick={() => setSidebarOpen(false)}
-                          title={item.description}
-                        >
-                          <item.icon className="w-5 h-5" />
-                          <span>{item.name}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                <AnimatePresence>
+                  {expandedGroups.includes(group.title) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-1 overflow-hidden"
+                    >
+                      {group.items.map((item, itemIndex) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <motion.div
+                            key={item.name}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: itemIndex * 0.03 }}
+                          >
+                            <Link
+                              href={item.href}
+                              className={cn(
+                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                                isActive
+                                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25"
+                                  : "text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 dark:text-gray-300 dark:hover:from-gray-700 dark:hover:to-gray-700"
+                              )}
+                              onClick={() => setSidebarOpen(false)}
+                              title={item.description}
+                            >
+                              <motion.div
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <item.icon className="w-5 h-5" />
+                              </motion.div>
+                              <span>{item.name}</span>
+                              {isActive && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="ml-auto"
+                                >
+                                  <Sparkles className="w-4 h-4" />
+                                </motion.div>
+                              )}
+                            </Link>
+                          </motion.div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ))}
           </nav>
 
           {/* 底部信息 */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="p-4 border-t border-gray-200/50 dark:border-gray-700/50"
+          >
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-2 h-2 bg-green-500 rounded-full"
+              />
               <span>系统运行正常</span>
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               © 2025 ARTiCO 教务管理系统 v1.0.0
             </p>
-          </div>
+          </motion.div>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* 主内容区域 */}
       <div className="lg:pl-64">
         {/* 顶部栏 */}
-        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm"
+        >
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* 左侧：移动端菜单按钮 + 快捷操作 */}
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="lg:hidden"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </motion.div>
               
               {/* 快捷操作按钮 - 桌面端 */}
               <QuickActionButtons />
@@ -311,7 +424,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* 中间：移动端标题 */}
             <div className="flex-1 lg:flex-none lg:hidden">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                 ARTiCO
               </h1>
             </div>
@@ -324,10 +437,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               {/* 快捷操作面板 */}
               <QuickActionsPanel
                 trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Zap className="w-4 h-4" />
-                    <span className="hidden sm:inline">快捷操作</span>
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button variant="outline" size="sm" className="gap-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50">
+                      <Zap className="w-4 h-4 text-orange-500" />
+                      <span className="hidden sm:inline">快捷操作</span>
+                    </Button>
+                  </motion.div>
                 }
               />
 
@@ -339,18 +454,34 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
           
           {/* 工作流程提示条 - 移动端隐藏 */}
-          <div className="hidden md:block border-t border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-2 bg-gray-50 dark:bg-gray-800/50">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="hidden md:block border-t border-gray-100/50 dark:border-gray-700/50 px-4 sm:px-6 py-2 bg-gradient-to-r from-orange-50/50 to-amber-50/50 dark:from-gray-800/50 dark:to-gray-800/50"
+          >
             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span className="text-orange-500 font-medium">工作流程：</span>
+              <span className="text-orange-500 font-medium flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                工作流程：
+              </span>
               <span>选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
             </div>
-          </div>
-        </header>
+          </motion.div>
+        </motion.header>
 
         {/* 页面内容 */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <motion.main 
+          key={pathname}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={contentVariants}
+          transition={{ duration: 0.3 }}
+          className="p-4 sm:p-6 lg:p-8"
+        >
           {children}
-        </main>
+        </motion.main>
       </div>
 
       {/* 全局搜索弹窗 */}
