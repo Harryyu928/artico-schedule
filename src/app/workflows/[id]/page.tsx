@@ -22,6 +22,14 @@ import {
   Clock as ClockIcon,
   CheckSquare,
   Square,
+  ExternalLink,
+  Users,
+  BookOpen,
+  FolderKanban,
+  Star,
+  School,
+  Send,
+  Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,6 +42,13 @@ const stageIcons: Record<string, any> = {
   PlayCircle,
   CheckCircle,
   CheckCircle2,
+  Users,
+  BookOpen,
+  FolderKanban,
+  Star,
+  School,
+  Send,
+  Trophy,
 };
 
 // 状态颜色映射
@@ -52,6 +67,33 @@ const statusText: Record<string, string> = {
   completed: '已完成',
   skipped: '已跳过',
   blocked: '已阻塞',
+};
+
+// 任务跳转路由映射
+const getTaskRoute = (taskName: string, instance: WorkflowInstance): string | null => {
+  const routes: Record<string, (instance: WorkflowInstance) => string> = {
+    '录入学生基本信息': (i) => `/students/new`,
+    '确认缴费信息': (i) => `/students/${i.entityId}?tab=info`,
+    '分配规划顾问': (i) => `/students/${i.entityId}?tab=info`,
+    '预约选课指导课': (i) => `/time-table/student?studentId=${i.entityId}`,
+    '进行选课指导': (i) => `/students/${i.entityId}`,
+    '确认指导完成': (i) => `/students/${i.entityId}`,
+    '创建选课单': (i) => `/selection-forms/new?studentId=${i.entityId}`,
+    '添加目标院校': (i) => `/students/${i.entityId}?tab=schools`,
+    '规划课程明细': (i) => `/selection-forms?studentId=${i.entityId}`,
+    '确认选课单': (i) => `/selection-forms?studentId=${i.entityId}`,
+    '设置学生可用时间': (i) => `/time-table/student?studentId=${i.entityId}`,
+    '设置导师可用时间': (i) => `/time-table/teacher`,
+    '执行自动排课': (i) => `/schedules?autoRun=true`,
+    '确认排课结果': (i) => `/schedules?studentId=${i.entityId}`,
+    '开始第一节课': (i) => `/class-records/new?studentId=${i.entityId}`,
+    '填写上课记录': (i) => `/class-records?studentId=${i.entityId}`,
+    '发送签字链接': (i) => `/class-records?studentId=${i.entityId}`,
+    '更新选课单进度': (i) => `/selection-forms?studentId=${i.entityId}`,
+  };
+  
+  const routeBuilder = routes[taskName];
+  return routeBuilder ? routeBuilder(instance) : null;
 };
 
 interface Task {
@@ -260,37 +302,52 @@ export default function WorkflowDetailPage() {
                     {/* 任务列表 */}
                     {stage.tasks.length > 0 && (
                       <div className="space-y-2 mt-3">
-                        {stage.tasks.map(task => (
-                          <div
-                            key={task.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border ${
-                              task.status === 'completed'
-                                ? 'bg-green-50 border-green-200'
-                                : task.status === 'in_progress'
-                                ? 'bg-blue-50 border-blue-200'
-                                : 'bg-gray-50 border-gray-200'
-                            }`}
-                          >
-                            <Checkbox
-                              checked={task.status === 'completed'}
-                              onCheckedChange={() => handleTaskToggle(task.id, task.status)}
-                            />
-                            <span
-                              className={`flex-1 ${
+                        {stage.tasks.map(task => {
+                          const taskRoute = getTaskRoute(task.name, instance);
+                          const TaskContent = () => (
+                            <div
+                              className={`flex items-center gap-3 p-3 rounded-lg border ${
                                 task.status === 'completed'
-                                  ? 'text-gray-400 line-through'
-                                  : 'text-gray-700'
-                              }`}
+                                  ? 'bg-green-50 border-green-200'
+                                  : task.status === 'in_progress'
+                                  ? 'bg-blue-50 border-blue-200'
+                                  : 'bg-gray-50 border-gray-200'
+                              } ${taskRoute ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
                             >
-                              {task.name}
-                            </span>
-                            {task.assigneeRole && (
-                              <Badge variant="secondary" className="text-xs">
-                                {task.assigneeRole}
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
+                              <Checkbox
+                                checked={task.status === 'completed'}
+                                onCheckedChange={() => handleTaskToggle(task.id, task.status)}
+                              />
+                              <span
+                                className={`flex-1 ${
+                                  task.status === 'completed'
+                                    ? 'text-gray-400 line-through'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                {task.name}
+                              </span>
+                              {task.assigneeRole && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {task.assigneeRole}
+                                </Badge>
+                              )}
+                              {taskRoute && task.status !== 'completed' && (
+                                <ExternalLink className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                          );
+                          
+                          return taskRoute ? (
+                            <Link key={task.id} href={taskRoute}>
+                              <TaskContent />
+                            </Link>
+                          ) : (
+                            <div key={task.id}>
+                              <TaskContent />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

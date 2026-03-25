@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { 
   workflowInstances,
   workflowTaskInstances,
+  workflowStageDefinitions,
 } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
@@ -200,6 +201,13 @@ export async function PATCH(
  */
 async function updateWorkflowProgress(instanceId: string) {
   try {
+    // 获取工作流实例
+    const instance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, instanceId),
+    });
+    
+    if (!instance) return;
+    
     // 获取该实例的所有任务
     const tasks = await db.select()
       .from(workflowTaskInstances)
@@ -218,13 +226,33 @@ async function updateWorkflowProgress(instanceId: string) {
       updatedAt: new Date(),
     };
     
-    // 如果全部完成，标记为completed
-    if (completedTasks === totalTasks) {
+    // 检查当前阶段是否全部完成
+    const currentStageTasks = tasks.filter(t => t.stageId === instance.currentStageId);
+    const currentStageCompleted = currentStageTasks.every(t => t.status === 'completed');
+    
+    // 如果当前阶段完成，自动推进到下一阶段
+    if (currentStageCompleted && currentStageTasks.length > 0 && instance.currentStageId) {
+      const nextStage = await getNextStage(instance.workflowId, instance.currentStageId);
+      
+      if (nextStage) {
+        // 推进到下一阶段
+        updateData.currentStageId = nextStage.id;
+        
+        // 发送阶段变更通知（可扩展）
+        console.log(`[Workflow] Instance ${instanceId} advanced to stage: ${nextStage.name}`);
+      } else {
+        // 没有下一阶段，工作流完成
+        updateData.status = 'completed';
+        updateData.completedAt = new Date();
+        console.log(`[Workflow] Instance ${instanceId} completed`);
+      }
+    } else if (completedTasks === totalTasks) {
+      // 所有任务完成，标记为completed
       updateData.status = 'completed';
       updateData.completedAt = new Date();
-    } else if (completedTasks > 0) {
+    } else if (completedTasks > 0 && instance.status === 'pending') {
       updateData.status = 'in_progress';
-      if (!await hasStartedAt(instanceId)) {
+      if (!instance.startedAt) {
         updateData.startedAt = new Date();
       }
     }
@@ -235,6 +263,27 @@ async function updateWorkflowProgress(instanceId: string) {
   } catch (error) {
     console.error('更新工作流进度失败:', error);
   }
+}
+
+/**
+ * 获取下一阶段
+ */
+async function getNextStage(workflowId: string, currentStageId: string) {
+  // 获取所有阶段
+  const stages = await db.select()
+    .from(workflowStageDefinitions)
+    .where(eq(workflowStageDefinitions.workflowId, workflowId))
+    .orderBy(workflowStageDefinitions.stageOrder);
+  
+  // 找到当前阶段的索引
+  const currentIndex = stages.findIndex(s => s.id === currentStageId);
+  
+  // 返回下一阶段
+  if (currentIndex >= 0 && currentIndex < stages.length - 1) {
+    return stages[currentIndex + 1];
+  }
+  
+  return null;
 }
 
 /**

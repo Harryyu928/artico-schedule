@@ -31,6 +31,7 @@ import type {
   AutoScheduleRequest,
 } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { createStudentOnboardingWorkflow } from './workflow-service';
 
 // ==================== 学生相关操作 ====================
 
@@ -92,6 +93,15 @@ export async function createStudent(data: CreateStudentRequest) {
       totalHours: data.total_hours,
       usedHours: 0,
     }).returning();
+
+    // 自动创建学生入学流程工作流实例（异步执行，不阻塞学生创建）
+    createStudentOnboardingWorkflow(student.id, student.name)
+      .then((workflow) => {
+        console.log(`[Student] Created onboarding workflow for student ${student.name}:`, workflow?.id);
+      })
+      .catch((error) => {
+        console.error(`[Student] Failed to create onboarding workflow:`, error);
+      });
 
     return student;
   } catch (error) {
