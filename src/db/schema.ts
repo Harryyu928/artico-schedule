@@ -688,6 +688,119 @@ export const workflowTaskInstances = pgTable('workflow_task_instances', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ==================== 结课审核相关枚举 ====================
+
+// 结课审核状态枚举
+export const settlementStatusEnum = pgEnum('settlement_status', [
+  'pending',      // 待提交（课程已完成，但未提交结课）
+  'submitted',    // 已提交，待审核
+  'approved',     // 审核通过
+  'rejected',     // 审核拒绝
+  'cancelled',    // 已取消
+] as const);
+
+// 结课类型枚举
+export const settlementTypeEnum = pgEnum('settlement_type', [
+  'single',       // 单次课程结课
+  'batch',        // 批量结课
+  'course_end',   // 整门课程结课
+] as const);
+
+// ==================== 结课审核表 ====================
+
+// 结课审核主表
+export const courseSettlements = pgTable('course_settlements', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  settlementId: varchar('settlement_id', { length: 50 }).notNull().unique(), // 业务编号
+  
+  // 关联信息
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id),
+  studentId: varchar('student_id', { length: 36 }).notNull().references(() => students.id),
+  courseId: varchar('course_id', { length: 36 }).notNull().references(() => courses.id),
+  classRecordId: varchar('class_record_id', { length: 36 }).references(() => classRecords.id),
+  selectionItemId: varchar('selection_item_id', { length: 36 }).references(() => courseSelectionItems.id),
+  
+  // 课程信息
+  classDate: date('class_date').notNull(),
+  weekDay: weekDayEnum('week_day'),
+  timeSlot: timeSlotEnum('time_slot'),
+  teachingHours: integer('teaching_hours').notNull().default(2), // 实际课时
+  
+  // 课酬计算
+  baseAmount: integer('base_amount').notNull().default(0), // 基础课酬
+  bonusAmount: integer('bonus_amount').notNull().default(0), // 奖金
+  deductionAmount: integer('deduction_amount').notNull().default(0), // 扣款
+  finalAmount: integer('final_amount').notNull().default(0), // 最终金额
+  
+  // 结课信息
+  teachingContent: text('teaching_content'), // 教学内容
+  studentPerformance: text('student_performance'), // 学生表现
+  homeworkAssigned: text('homework_assigned'), // 作业布置
+  nextPlan: text('next_plan'), // 下次计划
+  
+  // 审核信息
+  status: settlementStatusEnum('status').notNull().default('pending'),
+  settlementType: settlementTypeEnum('settlement_type').notNull().default('single'),
+  
+  submittedAt: timestamp('submitted_at'),
+  submittedBy: varchar('submitted_by', { length: 36 }),
+  
+  reviewedAt: timestamp('reviewed_at'),
+  reviewedBy: varchar('reviewed_by', { length: 36 }),
+  reviewNote: text('review_note'),
+  
+  // 批量结课关联
+  batchId: varchar('batch_id', { length: 36 }), // 批量结课ID
+  
+  // 模板扩展字段
+  templateData: jsonb('template_data').$type<Record<string, unknown>>(), // 模板扩展数据
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 批量结课表
+export const batchSettlements = pgTable('batch_settlements', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  batchId: varchar('batch_id', { length: 50 }).notNull().unique(), // 业务编号
+  
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id),
+  submittedBy: varchar('submitted_by', { length: 36 }).notNull(),
+  
+  // 统计信息
+  totalRecords: integer('total_records').notNull().default(0),
+  totalHours: integer('total_hours').notNull().default(0),
+  totalAmount: integer('total_amount').notNull().default(0),
+  
+  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 课酬汇总表
+export const teacherSalarySummary = pgTable('teacher_salary_summary', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id),
+  period: varchar('period', { length: 7 }).notNull(), // 格式：2024-01
+  
+  // 统计数据
+  totalClasses: integer('total_classes').notNull().default(0),
+  totalHours: integer('total_hours').notNull().default(0),
+  baseSalary: integer('base_salary').notNull().default(0),
+  bonusAmount: integer('bonus_amount').notNull().default(0),
+  deductionAmount: integer('deduction_amount').notNull().default(0),
+  finalSalary: integer('final_salary').notNull().default(0),
+  
+  paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('pending'), // pending, paid
+  
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // 类型导出
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
@@ -729,3 +842,11 @@ export type WorkflowInstance = typeof workflowInstances.$inferSelect;
 export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
 export type WorkflowTaskInstance = typeof workflowTaskInstances.$inferSelect;
 export type NewWorkflowTaskInstance = typeof workflowTaskInstances.$inferInsert;
+
+// 结课审核类型导出
+export type CourseSettlement = typeof courseSettlements.$inferSelect;
+export type NewCourseSettlement = typeof courseSettlements.$inferInsert;
+export type BatchSettlement = typeof batchSettlements.$inferSelect;
+export type NewBatchSettlement = typeof batchSettlements.$inferInsert;
+export type TeacherSalarySummary = typeof teacherSalarySummary.$inferSelect;
+export type NewTeacherSalarySummary = typeof teacherSalarySummary.$inferInsert;
