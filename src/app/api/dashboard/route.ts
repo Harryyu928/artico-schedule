@@ -74,33 +74,57 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
   const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   
   // ========== 1. 核心业务指标 ==========
-  const [
-    studentCountResult,
-    teacherCountResult,
-    courseCountResult,
-    scheduleCountResult,
-    classRecordCountResult,
-  ] = await Promise.all([
-    db.select({ count: count() }).from(students),
-    db.select({ count: count() }).from(teachers),
-    db.select({ count: count() }).from(courses),
-    db.select({ count: count() }).from(scheduleResults),
-    db.select({ count: count() }).from(classRecords),
-  ]);
+  // 使用独立的 try-catch 来处理可能不存在的表
+  let studentCount = 0, teacherCount = 0, courseCount = 0, scheduleCount = 0, classRecordCount = 0;
+  
+  try {
+    const [studentCountResult] = await db.select({ count: count() }).from(students);
+    studentCount = studentCountResult.count;
+  } catch (e) { console.log('students table not available'); }
+  
+  try {
+    const [teacherCountResult] = await db.select({ count: count() }).from(teachers);
+    teacherCount = teacherCountResult.count;
+  } catch (e) { console.log('teachers table not available'); }
+  
+  try {
+    const [courseCountResult] = await db.select({ count: count() }).from(courses);
+    courseCount = courseCountResult.count;
+  } catch (e) { console.log('courses table not available'); }
+  
+  try {
+    const [scheduleCountResult] = await db.select({ count: count() }).from(scheduleResults);
+    scheduleCount = scheduleCountResult.count;
+  } catch (e) { console.log('scheduleResults table not available'); }
+  
+  try {
+    const [classRecordCountResult] = await db.select({ count: count() }).from(classRecords);
+    classRecordCount = classRecordCountResult.count;
+  } catch (e) { console.log('classRecords table not available'); }
   
   // 本周/本月新增学生
-  const newStudentsThisWeekResult = await db.select({ count: count() })
-    .from(students)
-    .where(gte(students.createdAt, weekAgo));
+  let newStudentsThisWeek = 0, newStudentsThisMonth = 0;
   
-  const newStudentsThisMonthResult = await db.select({ count: count() })
-    .from(students)
-    .where(gte(students.createdAt, monthAgo));
+  try {
+    const newStudentsThisWeekResult = await db.select({ count: count() })
+      .from(students)
+      .where(gte(students.createdAt, weekAgo));
+    newStudentsThisWeek = newStudentsThisWeekResult[0].count;
+    
+    const newStudentsThisMonthResult = await db.select({ count: count() })
+      .from(students)
+      .where(gte(students.createdAt, monthAgo));
+    newStudentsThisMonth = newStudentsThisMonthResult[0].count;
+  } catch (e) { /* ignore */ }
   
   // 今日排课数
-  const todaySchedulesResult = await db.select({ count: count() })
-    .from(scheduleResults)
-    .where(gte(scheduleResults.createdAt, today));
+  let todaySchedules = 0;
+  try {
+    const todaySchedulesResult = await db.select({ count: count() })
+      .from(scheduleResults)
+      .where(gte(scheduleResults.createdAt, today));
+    todaySchedules = todaySchedulesResult[0].count;
+  } catch (e) { /* ignore */ }
 
   // ========== 2. 学生多维度分析 ==========
   const allStudents = await db.select().from(students);
@@ -156,55 +180,70 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
 
   // ========== 4. 课程分析 ==========
   // 热门课程排行（按排课数量）
-  const courseStats = await db
-    .select({
-      courseId: scheduleResults.courseId,
-      count: count(),
-    })
-    .from(scheduleResults)
-    .groupBy(scheduleResults.courseId)
-    .orderBy(desc(sql`count(*)`))
-    .limit(10);
+  let topCourses: Array<{ id: string; name: string; category: string; scheduleCount: number }> = [];
   
-  // 获取课程名称
-  const courseIds = courseStats.map(cs => cs.courseId);
-  const courseInfo = courseIds.length > 0 
-    ? await db.select().from(courses).where(inArray(courses.id, courseIds))
-    : [];
-  
-  const courseMap = new Map(courseInfo.map(c => [c.id, c]));
-  const topCourses = courseStats.map(cs => ({
-    ...courseMap.get(cs.courseId),
-    scheduleCount: cs.count,
-  })).filter(c => c.id);
+  try {
+    const courseStats = await db
+      .select({
+        courseId: scheduleResults.courseId,
+        count: count(),
+      })
+      .from(scheduleResults)
+      .groupBy(scheduleResults.courseId)
+      .orderBy(desc(sql`count(*)`))
+      .limit(10);
+    
+    // 获取课程名称
+    const courseIds = courseStats.map(cs => cs.courseId);
+    const courseInfo = courseIds.length > 0 
+      ? await db.select().from(courses).where(inArray(courses.id, courseIds))
+      : [];
+    
+    const courseMap = new Map(courseInfo.map(c => [c.id, c]));
+    topCourses = courseStats.map(cs => {
+      const course = courseMap.get(cs.courseId);
+      return course ? {
+        id: course.id,
+        name: course.name,
+        category: course.category,
+        scheduleCount: cs.count,
+      } : null;
+    }).filter((c): c is NonNullable<typeof c> => c !== null);
+  } catch (e) { /* ignore */ }
 
   // ========== 5. 排课分析 ==========
-  // 时段分布
-  const timeSlotDistribution = await db
-    .select({
-      timeSlot: scheduleResults.timeSlot,
-      count: count(),
-    })
-    .from(scheduleResults)
-    .groupBy(scheduleResults.timeSlot);
+  let timeSlotDistribution: Array<{ timeSlot: string; count: number }> = [];
+  let weekDayDistribution: Array<{ weekDay: string; count: number }> = [];
+  let scheduleStatusDistribution: Array<{ status: string; count: number }> = [];
   
-  // 周几分布
-  const weekDayDistribution = await db
-    .select({
-      weekDay: scheduleResults.weekDay,
-      count: count(),
-    })
-    .from(scheduleResults)
-    .groupBy(scheduleResults.weekDay);
-  
-  // 排课状态分布
-  const scheduleStatusDistribution = await db
-    .select({
-      status: scheduleResults.status,
-      count: count(),
-    })
-    .from(scheduleResults)
-    .groupBy(scheduleResults.status);
+  try {
+    // 时段分布
+    timeSlotDistribution = await db
+      .select({
+        timeSlot: scheduleResults.timeSlot,
+        count: count(),
+      })
+      .from(scheduleResults)
+      .groupBy(scheduleResults.timeSlot);
+    
+    // 周几分布
+    weekDayDistribution = await db
+      .select({
+        weekDay: scheduleResults.weekDay,
+        count: count(),
+      })
+      .from(scheduleResults)
+      .groupBy(scheduleResults.weekDay);
+    
+    // 排课状态分布
+    scheduleStatusDistribution = await db
+      .select({
+        status: scheduleResults.status,
+        count: count(),
+      })
+      .from(scheduleResults)
+      .groupBy(scheduleResults.status);
+  } catch (e) { /* ignore */ }
 
   // ========== 6. 财务概览 ==========
   const totalHours = allStudents.reduce((sum, s) => sum + s.totalHours, 0);
@@ -213,60 +252,84 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
 
   // ========== 7. 预警指标 ==========
   // 待处理选课单
-  const pendingFormsResult = await db.select({ count: count() })
-    .from(courseSelectionForms)
-    .where(eq(courseSelectionForms.status, '已确认'));
+  let pendingFormsCount = 0;
+  try {
+    const pendingFormsResult = await db.select({ count: count() })
+      .from(courseSelectionForms)
+      .where(eq(courseSelectionForms.status, '已确认'));
+    pendingFormsCount = pendingFormsResult[0]?.count || 0;
+  } catch (e) { /* ignore */ }
   
   // 待填上课记录
-  const pendingRecordsResult = await db.select({ count: count() })
-    .from(classRecords)
-    .where(eq(classRecords.attendanceStatus, '已排课'));
+  let pendingRecordsCount = 0;
+  let inactiveStudents: typeof allStudents = [];
   
-  // 长时间未上课学生（超过14天没有上课记录）
-  const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const recentClassStudentIds = await db
-    .selectDistinct({ studentId: classRecords.studentId })
-    .from(classRecords)
-    .where(gte(classRecords.createdAt, twoWeeksAgo));
-  
-  const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
-  const inactiveStudents = allStudents.filter(s => !recentStudentIdSet.has(s.id));
+  try {
+    const pendingRecordsResult = await db.select({ count: count() })
+      .from(classRecords)
+      .where(eq(classRecords.attendanceStatus, '已排课'));
+    pendingRecordsCount = pendingRecordsResult[0]?.count || 0;
+    
+    // 长时间未上课学生（超过14天没有上课记录）
+    const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const recentClassStudentIds = await db
+      .selectDistinct({ studentId: classRecords.studentId })
+      .from(classRecords)
+      .where(gte(classRecords.createdAt, twoWeeksAgo));
+    
+    const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
+    inactiveStudents = allStudents.filter(s => !recentStudentIdSet.has(s.id));
+  } catch (e) { /* ignore */ }
 
   // ========== 8. 趋势数据（近30天）==========
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   
   // 学生增长趋势
-  const studentGrowth = await db
-    .select({
-      date: sql<string>`DATE(${students.createdAt})`.as('date'),
-      count: count(),
-    })
-    .from(students)
-    .where(gte(students.createdAt, thirtyDaysAgo))
-    .groupBy(sql`DATE(${students.createdAt})`)
-    .orderBy(asc(sql`DATE(${students.createdAt})`));
+  let studentGrowth: Array<{ date: string; count: number }> = [];
+  let scheduleGrowth: Array<{ date: string; count: number }> = [];
   
-  // 排课趋势
-  const scheduleGrowth = await db
-    .select({
-      date: sql<string>`DATE(${scheduleResults.createdAt})`.as('date'),
-      count: count(),
-    })
-    .from(scheduleResults)
-    .where(gte(scheduleResults.createdAt, thirtyDaysAgo))
-    .groupBy(sql`DATE(${scheduleResults.createdAt})`)
-    .orderBy(asc(sql`DATE(${scheduleResults.createdAt})`));
+  try {
+    studentGrowth = await db
+      .select({
+        date: sql<string>`DATE(${students.createdAt})`.as('date'),
+        count: count(),
+      })
+      .from(students)
+      .where(gte(students.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${students.createdAt})`)
+      .orderBy(asc(sql`DATE(${students.createdAt})`));
+  } catch (e) { /* ignore */ }
+  
+  try {
+    // 排课趋势
+    scheduleGrowth = await db
+      .select({
+        date: sql<string>`DATE(${scheduleResults.createdAt})`.as('date'),
+        count: count(),
+      })
+      .from(scheduleResults)
+      .where(gte(scheduleResults.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${scheduleResults.createdAt})`)
+      .orderBy(asc(sql`DATE(${scheduleResults.createdAt})`));
+  } catch (e) { /* ignore */ }
 
   // ========== 9. 最近活动 ==========
-  const recentSchedules = await db.query.scheduleResults.findMany({
-    orderBy: desc(scheduleResults.createdAt),
-    limit: 5,
-  });
+  let recentSchedules: typeof scheduleResults.$inferSelect[] = [];
+  let recentStudentsList: typeof students.$inferSelect[] = [];
   
-  const recentStudentsList = await db.query.students.findMany({
-    orderBy: desc(students.createdAt),
-    limit: 5,
-  });
+  try {
+    recentSchedules = await db.query.scheduleResults.findMany({
+      orderBy: desc(scheduleResults.createdAt),
+      limit: 5,
+    });
+  } catch (e) { /* ignore */ }
+  
+  try {
+    recentStudentsList = await db.query.students.findMany({
+      orderBy: desc(students.createdAt),
+      limit: 5,
+    });
+  } catch (e) { /* ignore */ }
 
   return NextResponse.json({
     success: true,
@@ -280,14 +343,14 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
       
       // 核心指标
       overview: {
-        totalStudents: studentCountResult[0].count,
-        totalTeachers: teacherCountResult[0].count,
-        totalCourses: courseCountResult[0].count,
-        totalSchedules: scheduleCountResult[0].count,
-        totalClassRecords: classRecordCountResult[0].count,
-        newStudentsThisWeek: newStudentsThisWeekResult[0].count,
-        newStudentsThisMonth: newStudentsThisMonthResult[0].count,
-        todaySchedules: todaySchedulesResult[0].count,
+        totalStudents: studentCount,
+        totalTeachers: teacherCount,
+        totalCourses: courseCount,
+        totalSchedules: scheduleCount,
+        totalClassRecords: classRecordCount,
+        newStudentsThisWeek,
+        newStudentsThisMonth,
+        todaySchedules,
       },
       
       // 学生分析
@@ -353,8 +416,8 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
       
       // 预警指标
       alerts: {
-        pendingForms: pendingFormsResult[0].count,
-        pendingRecords: pendingRecordsResult[0].count,
+        pendingForms: pendingFormsCount,
+        pendingRecords: pendingRecordsCount,
         lowHourStudents: lowHourStudents.length,
         exhaustedStudents: exhaustedStudents.length,
         inactiveStudents: inactiveStudents.length,
@@ -426,81 +489,106 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
   
   // 待处理选课单
   const studentIds = myStudents.map(s => s.id);
-  const pendingForms = studentIds.length > 0 
-    ? await db.query.courseSelectionForms.findMany({
-        where: and(
-          inArray(courseSelectionForms.studentId, studentIds),
-          eq(courseSelectionForms.status, '已确认')
-        ),
-        limit: 10,
-      })
-    : [];
+  let pendingForms: Array<{ id: string; formId: string; studentId: string; status: string; createdAt: Date }> = [];
+  try {
+    pendingForms = studentIds.length > 0 
+      ? await db.query.courseSelectionForms.findMany({
+          where: and(
+            inArray(courseSelectionForms.studentId, studentIds),
+            eq(courseSelectionForms.status, '已确认')
+          ),
+          limit: 10,
+        }) as typeof pendingForms
+      : [];
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 本周排课情况
-  const weekSchedules = studentIds.length > 0
-    ? await db.query.scheduleResults.findMany({
-        where: and(
-          inArray(scheduleResults.studentId, studentIds),
-          gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
-        ),
-      })
-    : [];
+  let weekSchedules: Array<{ id: string; studentId: string; date: string; timeSlot: string; status: string }> = [];
+  try {
+    weekSchedules = studentIds.length > 0
+      ? await db.query.scheduleResults.findMany({
+          where: and(
+            inArray(scheduleResults.studentId, studentIds),
+            gte(scheduleResults.date, weekStart.toISOString().split('T')[0])
+          ),
+        }) as typeof weekSchedules
+      : [];
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 今日课程
   const todaySchedules = weekSchedules.filter(s => s.date === today.toISOString().split('T')[0]);
   
   // 本周上课记录
-  const weekClassRecords = studentIds.length > 0
-    ? await db.query.classRecords.findMany({
-        where: and(
-          inArray(classRecords.studentId, studentIds),
-          gte(classRecords.createdAt, weekStart)
-        ),
-      })
-    : [];
+  let weekClassRecords: Array<{ id: string; studentId: string; createdAt: Date }> = [];
+  try {
+    weekClassRecords = studentIds.length > 0
+      ? await db.query.classRecords.findMany({
+          where: and(
+            inArray(classRecords.studentId, studentIds),
+            gte(classRecords.createdAt, weekStart)
+          ),
+        })
+      : [];
+  } catch (e) { /* 表不存在时忽略 */ }
   
   // 长时间未上课学生
-  const recentClassStudentIds = studentIds.length > 0
-    ? await db.selectDistinct({ studentId: classRecords.studentId })
-        .from(classRecords)
-        .where(and(
-          inArray(classRecords.studentId, studentIds),
-          gte(classRecords.createdAt, twoWeeksAgo)
-        ))
-    : [];
-  
-  const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
-  const inactiveStudents = myStudents.filter(s => !recentStudentIdSet.has(s.id));
+  let inactiveStudents: Array<typeof students.$inferSelect> = [];
+  try {
+    const recentClassStudentIds = studentIds.length > 0
+      ? await db.selectDistinct({ studentId: classRecords.studentId })
+          .from(classRecords)
+          .where(and(
+            inArray(classRecords.studentId, studentIds),
+            gte(classRecords.createdAt, twoWeeksAgo)
+          ))
+      : [];
+    
+    const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
+    inactiveStudents = myStudents.filter(s => !recentStudentIdSet.has(s.id));
+  } catch (e) {
+    // 表不存在时，将所有学生标记为活跃
+    inactiveStudents = [];
+  }
   
   // 学生上课情况统计
   const studentClassStats = await Promise.all(
     myStudents.slice(0, 20).map(async (student) => {
-      const weekRecords = await db.select({ count: count() })
-        .from(classRecords)
-        .where(and(
-          eq(classRecords.studentId, student.id),
-          gte(classRecords.createdAt, weekStart)
-        ));
-      
-      const monthRecords = await db.select({ count: count() })
-        .from(classRecords)
-        .where(and(
-          eq(classRecords.studentId, student.id),
-          gte(classRecords.createdAt, monthStart)
-        ));
-      
-      const lastRecord = await db.query.classRecords.findFirst({
-        where: eq(classRecords.studentId, student.id),
-        orderBy: desc(classRecords.createdAt),
-      });
-      
-      return {
-        studentId: student.id,
-        studentName: student.name,
-        weekRecords: weekRecords[0].count,
-        monthRecords: monthRecords[0].count,
-        lastClassDate: lastRecord?.classDate || null,
-      };
+      try {
+        const weekRecords = await db.select({ count: count() })
+          .from(classRecords)
+          .where(and(
+            eq(classRecords.studentId, student.id),
+            gte(classRecords.createdAt, weekStart)
+          ));
+        
+        const monthRecords = await db.select({ count: count() })
+          .from(classRecords)
+          .where(and(
+            eq(classRecords.studentId, student.id),
+            gte(classRecords.createdAt, monthStart)
+          ));
+        
+        const lastRecord = await db.query.classRecords.findFirst({
+          where: eq(classRecords.studentId, student.id),
+          orderBy: desc(classRecords.createdAt),
+        });
+        
+        return {
+          studentId: student.id,
+          studentName: student.name,
+          weekRecords: weekRecords[0]?.count || 0,
+          monthRecords: monthRecords[0]?.count || 0,
+          lastClassDate: lastRecord?.classDate || null,
+        };
+      } catch (e) {
+        return {
+          studentId: student.id,
+          studentName: student.name,
+          weekRecords: 0,
+          monthRecords: 0,
+          lastClassDate: null,
+        };
+      }
     })
   );
 
