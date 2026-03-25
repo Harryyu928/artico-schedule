@@ -81,6 +81,19 @@ interface Teacher {
   currentHours: number;
   teacherType?: string;
   createdAt: string;
+  // 飞书多维表格对接新字段
+  cooperationStatus?: string;
+  majorDirection?: string;
+  wechatId?: string;
+  meetingLink?: string;
+  idType?: string;
+  idNumber?: string;
+  bankName?: string;
+  bankAccount?: string;
+  contractExpiry?: string;
+  projectCourseCount?: number;
+  settledCount?: number;
+  settlementRate?: number;
 }
 
 type SortField = 'teacherId' | 'name' | 'teacherType' | 'maxWeeklyHours' | 'currentHours' | 'createdAt';

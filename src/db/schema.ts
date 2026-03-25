@@ -169,6 +169,72 @@ export const projectPhaseEnum = pgEnum('project_phase', [
   'Portfolio',
 ] as const);
 
+// ========== 飞书多维表格对接新增枚举 ==========
+
+// 学员状态枚举
+export const studentStatusEnum = pgEnum('student_status', [
+  '在读',
+  '停课',
+  '毕业',
+] as const);
+
+// 学员类别枚举
+export const studentCategoryEnum = pgEnum('student_category', [
+  'VIP 5',
+  'FV-Portfolio作品集',
+  'FV-基础能力',
+  'FV-项目课',
+  '常规',
+] as const);
+
+// 课程类别枚举（飞书维度）
+export const courseCategoryFeishuEnum = pgEnum('course_category_feishu', [
+  '基础能力提升课',
+  '项目一',
+  '项目二',
+  '项目三',
+  '作品集打磨',
+] as const);
+
+// 导师合作性质枚举
+export const teacherCooperationStatusEnum = pgEnum('teacher_cooperation_status', [
+  '合作中',
+  '终止合作',
+] as const);
+
+// 导师专业方向枚举
+export const teacherMajorDirectionEnum = pgEnum('teacher_major_direction', [
+  '游戏开发',
+  '动画设计',
+  '游戏美术',
+  '角色设计',
+  '3D建模',
+  'UI设计',
+  '其他',
+] as const);
+
+// 证件类型枚举
+export const idTypeEnum = pgEnum('id_type', [
+  '身份证',
+  '护照',
+  '港澳通行证',
+  '其他',
+] as const);
+
+// 到课情况枚举
+export const attendanceStatusFeishuEnum = pgEnum('attendance_status_feishu', [
+  '正常',
+  '迟到',
+  '旷课',
+  '请假',
+] as const);
+
+// 结课状态枚举
+export const settlementStatusFeishuEnum = pgEnum('settlement_status_feishu', [
+  '已结',
+  '未结',
+] as const);
+
 export const degreeEnum = pgEnum('degree', [
   '本科',
   '硕士',
@@ -180,6 +246,14 @@ export const applicationStatusEnum = pgEnum('application_status', [
   '已申请',
   '已录取',
   '已拒绝',
+] as const);
+
+// 顾问级别枚举
+export const consultantLevelEnum = pgEnum('consultant_level', [
+  'supervisor', // 顾问主管
+  'senior',     // 高级顾问
+  'standard',   // 普通顾问
+  'trainee',    // 见习顾问
 ] as const);
 
 // ========== 用户认证相关表 ==========
@@ -194,6 +268,7 @@ export const users = pgTable('users', {
   // 关联信息（根据角色不同，关联不同的实体）
   teacherId: varchar('teacher_id', { length: 36 }).references(() => teachers.id, { onDelete: 'set null' }),
   studentId: varchar('student_id', { length: 36 }).references(() => students.id, { onDelete: 'set null' }),
+  consultantId: varchar('consultant_id', { length: 36 }), // 顾问关联（使用字符串存储，避免循环引用）
   
   // 基本信息
   name: varchar('name', { length: 100 }).notNull(),
@@ -234,6 +309,47 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// ========== 顾问管理模块 ==========
+
+// 顾问级别枚举（已在上文定义）
+
+// 顾问表
+export const consultants = pgTable('consultants', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  consultantId: varchar('consultant_id', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  level: consultantLevelEnum('level').notNull().default('standard'),
+  
+  // 联系信息
+  email: varchar('email', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
+  wechat: varchar('wechat', { length: 50 }),
+  
+  // 飞书集成
+  feishuUserId: varchar('feishu_user_id', { length: 100 }).unique(),
+  feishuRecordId: varchar('feishu_record_id', { length: 100 }),
+  
+  // 用户账号关联（使用字符串存储，避免循环引用）
+  userId: varchar('user_id', { length: 36 }),
+  
+  // 统计数据
+  totalStudents: integer('total_students').notNull().default(0), // 负责学生总数
+  activeStudents: integer('active_students').notNull().default(0), // 在读学生数
+  
+  // 状态
+  isActive: boolean('is_active').notNull().default(true),
+  
+  // 备注
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 顾问类型导出
+export type Consultant = typeof consultants.$inferSelect;
+export type NewConsultant = typeof consultants.$inferInsert;
+
 // ========== 业务表 ==========
 
 // 学生表
@@ -255,6 +371,28 @@ export const students = pgTable('students', {
   // 负责人
   consultantId: varchar('consultant_id', { length: 36 }), // 负责规划顾问
   primaryTeacherId: varchar('primary_teacher_id', { length: 36 }), // 主导师
+  
+  // ========== 飞书多维表格对接新增字段 ==========
+  
+  // 学员状态与类别
+  studentStatus: studentStatusEnum('student_status').default('在读'),
+  studentCategory: studentCategoryEnum('student_category'), // VIP 5、FV-Portfolio作品集等
+  
+  // 升学顾问（关联顾问表）
+  admissionConsultantId: varchar('admission_consultant_id', { length: 36 }),
+  
+  // 课程相关信息
+  courseCategory: courseCategoryFeishuEnum('course_category'), // 基础能力提升课/项目一/项目二等
+  currentTeacherId: varchar('current_teacher_id', { length: 36 }), // 负责该项目的导师
+  
+  // 课时费用
+  hourlyRate: integer('hourly_rate'), // 课时单价（分）
+  
+  // 合同信息
+  contractId: varchar('contract_id', { length: 36 }), // 关联合同表
+  
+  // 飞书多维表格同步
+  feishuRecordId: varchar('feishu_record_id', { length: 100 }), // 飞书记录ID
   
   // 通知偏好
   notificationChannels: jsonb('notification_channels').$type<{
@@ -308,6 +446,39 @@ export const teachers = pgTable('teachers', {
   
   // 飞书集成
   feishuUserId: varchar('feishu_user_id', { length: 100 }).unique(),
+  
+  // ========== 飞书多维表格对接新增字段 ==========
+  
+  // 合作状态
+  cooperationStatus: teacherCooperationStatusEnum('cooperation_status').default('合作中'),
+  
+  // 专业方向
+  majorDirection: teacherMajorDirectionEnum('major_direction'),
+  
+  // 微信号
+  wechatId: varchar('wechat_id', { length: 50 }),
+  
+  // 授课会议号（飞书会议链接）
+  meetingLink: varchar('meeting_link', { length: 500 }),
+  
+  // 证件信息
+  idType: idTypeEnum('id_type'),
+  idNumber: varchar('id_number', { length: 50 }),
+  
+  // 收款信息
+  bankName: varchar('bank_name', { length: 100 }),
+  bankAccount: varchar('bank_account', { length: 50 }),
+  
+  // 合同信息
+  contractExpiry: date('contract_expiry'),
+  
+  // 统计数据（从上课记录表汇总）
+  projectCourseCount: integer('project_course_count').default(0), // 项目课数量
+  settledCount: integer('settled_count').default(0), // 结课数量
+  settlementRate: integer('settlement_rate').default(0), // 结课率（百分比）
+  
+  // 飞书多维表格同步
+  feishuRecordId: varchar('feishu_record_id', { length: 100 }),
   
   // 通知偏好
   notificationChannels: jsonb('notification_channels').$type<{
@@ -502,13 +673,37 @@ export const classRecords = pgTable('class_records', {
   endTime: varchar('end_time', { length: 10 }), // 结束时间，灵活存储
   actualDuration: integer('actual_duration').notNull().default(120), // 默认120分钟
   
+  // ========== 飞书多维表格对接新增字段 ==========
+  
+  // 年份月份（用于统计筛选）
+  classYear: integer('class_year'), // 上课年份
+  classMonth: integer('class_month'), // 上课月份
+  
+  // 到课情况（系统内部状态）
+  attendanceStatus: classRecordStatusEnum('attendance_status').notNull().default('已排课'),
+  
+  // 飞书对接 - 到课情况（与飞书多维表格同步）
+  attendanceStatusFeishu: attendanceStatusFeishuEnum('attendance_status_feishu').default('正常'),
+  
+  // 作业评分（百分制）
+  homeworkScore: integer('homework_score'), // 作业分数 0-100
+  
+  // 剩余课时
+  remainingHours: integer('remaining_hours'), // 本课程剩余课时
+  
+  // 结课状态
+  isSettled: boolean('is_settled').notNull().default(false), // 是否已结课
+  settlementStatus: settlementStatusFeishuEnum('settlement_status_feishu').default('未结'), // 结课状态
+  
+  // 飞书多维表格同步
+  feishuRecordId: varchar('feishu_record_id', { length: 100 }), // 飞书记录ID
+  
   // 课程内容
   contentSummary: text('content_summary').notNull(),
   teachingMethod: varchar('teaching_method', { length: 100 }),
   
   // 学生表现
   studentPerformance: text('student_performance'),
-  attendanceStatus: classRecordStatusEnum('attendance_status').notNull().default('已排课'),
   
   // 作业与反馈
   homeworkAssigned: text('homework_assigned'),

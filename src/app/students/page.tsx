@@ -86,6 +86,13 @@ interface Student {
   totalHours: number;
   usedHours: number;
   createdAt: string;
+  // 飞书多维表格对接新字段
+  studentStatus?: string;
+  studentCategory?: string;
+  courseCategory?: string;
+  hourlyRate?: number;
+  consultantId?: string;
+  currentTeacherId?: string;
 }
 
 type SortField = 'studentId' | 'name' | 'major' | 'currentStage' | 'totalHours' | 'usedHours' | 'createdAt';

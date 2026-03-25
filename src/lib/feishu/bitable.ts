@@ -50,8 +50,9 @@ export class FeishuBitableService {
         return { success: false, error: '找不到学生' };
       }
 
-      // 准备字段数据
+      // 准备字段数据（包含飞书多维表格对接新字段）
       const fields: Record<string, unknown> = {
+        // 基础信息
         '学号': student.studentId,
         '姓名': student.name,
         '邮箱': student.email || '',
@@ -63,6 +64,15 @@ export class FeishuBitableService {
         '总课时': student.totalHours || 0,
         '已用课时': student.usedHours || 0,
         '剩余课时': (student.totalHours || 0) - (student.usedHours || 0),
+        
+        // ========== 飞书多维表格对接新字段 ==========
+        '学员状态': student.studentStatus || '在读',
+        '学员类别': student.studentCategory || '',
+        '课程类别': student.courseCategory || '',
+        '课时单价': student.hourlyRate ? student.hourlyRate / 100 : 0, // 分转元
+        '合同ID': student.contractId || '',
+        
+        // 时间戳
         '创建时间': student.createdAt?.toISOString() || '',
         '更新时间': new Date().toISOString(),
       };
@@ -107,8 +117,9 @@ export class FeishuBitableService {
         return { success: false, error: '找不到导师' };
       }
 
-      // 准备字段数据
+      // 准备字段数据（包含飞书多维表格对接新字段）
       const fields: Record<string, unknown> = {
+        // 基础信息
         '工号': teacher.teacherId,
         '姓名': teacher.name,
         '类型': teacher.teacherType || '',
@@ -118,6 +129,22 @@ export class FeishuBitableService {
         '邮箱': teacher.email || '',
         '电话': teacher.phone || '',
         '简介': teacher.bio || '',
+        
+        // ========== 飞书多维表格对接新字段 ==========
+        '合作状态': teacher.cooperationStatus || '合作中',
+        '专业方向': teacher.majorDirection || '',
+        '微信号': teacher.wechatId || '',
+        '授课会议号': teacher.meetingLink || '',
+        '证件类型': teacher.idType || '',
+        '证件号': teacher.idNumber || '',
+        '收款银行': teacher.bankName || '',
+        '收款账号': teacher.bankAccount || '',
+        '合同到期日': teacher.contractExpiry || '',
+        '项目课数量': teacher.projectCourseCount || 0,
+        '结课数量': teacher.settledCount || 0,
+        '结课率': teacher.settlementRate || 0,
+        
+        // 时间戳
         '创建时间': teacher.createdAt?.toISOString() || '',
         '更新时间': new Date().toISOString(),
       };
@@ -227,8 +254,9 @@ export class FeishuBitableService {
         where: eq(courses.id, record.courseId),
       }) : null;
 
-      // 准备字段数据
+      // 准备字段数据（包含飞书多维表格对接新字段）
       const fields: Record<string, unknown> = {
+        // 基础信息
         '记录ID': record.recordId,
         '学生姓名': student?.name || '',
         '导师姓名': teacher?.name || '',
@@ -240,6 +268,19 @@ export class FeishuBitableService {
         '课后作业': record.homeworkAssigned || '',
         '学生表现': record.studentPerformance || '',
         '出勤状态': record.attendanceStatus || '',
+        
+        // ========== 飞书多维表格对接新字段 ==========
+        '年份': record.classYear || new Date().getFullYear(),
+        '月份': record.classMonth || new Date().getMonth() + 1,
+        '到课情况': record.attendanceStatus || '正常',
+        '作业分数': record.homeworkScore || 0,
+        '剩余课时': record.remainingHours || 0,
+        '是否已结课': record.isSettled ? '是' : '否',
+        '结课状态': record.settlementStatus || '未结',
+        '课程类别': record.courseCategory || '',
+        '课程内容详情': record.courseContentDetail || '',
+        
+        // 时间戳
         '创建时间': record.createdAt?.toISOString() || '',
         '更新时间': new Date().toISOString(),
       };
