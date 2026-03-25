@@ -186,14 +186,14 @@ export function TeacherDashboard() {
   return (
     <div className="space-y-6">
       {/* 欢迎横幅 */}
-      <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl sm:rounded-2xl p-5 sm:p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold mb-2">导师工作台</h1>
-            <p className="text-white/90">
-              今日有 <span className="font-bold text-2xl">{overview.todayCourses}</span> 节课程
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">导师工作台</h1>
+            <p className="text-white/90 text-sm sm:text-base">
+              今日有 <span className="font-bold text-xl sm:text-2xl">{overview.todayCourses}</span> 节课程
               {overview.pendingRecords > 0 && (
-                <span className="ml-4 text-yellow-200">
+                <span className="ml-2 sm:ml-4 text-yellow-200">
                   · {overview.pendingRecords} 条记录待填写
                 </span>
               )}
@@ -203,16 +203,16 @@ export function TeacherDashboard() {
             variant="ghost" 
             size="sm" 
             onClick={fetchDashboardData}
-            className="text-white hover:bg-white/10"
+            className="text-white hover:bg-white/10 self-end sm:self-auto"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            刷新
+            <RefreshCw className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">刷新</span>
           </Button>
         </div>
       </div>
 
       {/* 核心指标卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="今日课程"
           value={overview.todayCourses}
@@ -635,19 +635,19 @@ function MetricCard({
 
   const content = (
     <>
-      <div className="flex items-center justify-between mb-2">
-        <div className={`w-10 h-10 rounded-lg ${bgColors[color]} flex items-center justify-center ${alert ? 'animate-pulse' : ''}`}>
-          <Icon className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${bgColors[color]} flex items-center justify-center ${alert ? 'animate-pulse' : ''}`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
         {progress !== undefined && (
           <span className="text-xs text-gray-500">{progress}%</span>
         )}
       </div>
-      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xl sm:text-2xl font-bold">{value}</div>
       <div className="text-xs text-gray-500">{title}</div>
       {subtitle && <div className="text-xs text-gray-400 mt-0.5">{subtitle}</div>}
       {progress !== undefined && (
-        <Progress value={progress} className="mt-2 h-1.5" />
+        <Progress value={progress} className="mt-1.5 sm:mt-2 h-1.5" />
       )}
     </>
   );
@@ -656,7 +656,7 @@ function MetricCard({
     return (
       <Link href={href}>
         <Card className="group hover:shadow-lg transition-all cursor-pointer h-full">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             {content}
           </CardContent>
         </Card>
@@ -666,7 +666,7 @@ function MetricCard({
 
   return (
     <Card className="h-full">
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         {content}
       </CardContent>
     </Card>

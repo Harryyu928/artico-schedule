@@ -715,13 +715,13 @@ function DefaultDashboard() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* 欢迎横幅 */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-white shadow-lg">
-        <h1 className="text-4xl font-bold mb-2">
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl sm:rounded-2xl p-5 sm:p-8 text-white shadow-lg">
+        <h1 className="text-2xl sm:text-4xl font-bold mb-2">
           欢迎使用 ARTiCO 教务管理系统
         </h1>
-        <p className="text-white/90 text-lg mb-6">
+        <p className="text-white/90 text-base sm:text-lg mb-4 sm:mb-6">
           智能化的教务管理解决方案，让排课更简单高效
         </p>
       </div>
@@ -729,24 +729,24 @@ function DefaultDashboard() {
       {/* 角色切换 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">🔐 快速切换角色测试</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">🔐 快速切换角色测试</CardTitle>
           <CardDescription>
             点击下方按钮切换不同角色，体验各角色的仪表盘
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {roles.map(({ role, label, desc, color }) => (
               <Button
                 key={role}
                 variant="outline"
-                className={`h-auto py-4 flex-col gap-1 border-2 hover:border-orange-300 ${switching === role ? 'opacity-50' : ''}`}
+                className={`h-auto py-3 sm:py-4 flex-col gap-1 border-2 hover:border-orange-300 ${switching === role ? 'opacity-50' : ''}`}
                 onClick={() => handleRoleSwitch(role)}
                 disabled={switching !== null}
               >
                 <div className={`w-3 h-3 rounded-full ${color}`} />
-                <span className="font-semibold">{label}</span>
-                <span className="text-xs text-muted-foreground">{desc}</span>
+                <span className="font-semibold text-sm sm:text-base">{label}</span>
+                <span className="text-xs text-muted-foreground hidden sm:block">{desc}</span>
                 {switching === role && (
                   <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
                 )}
@@ -757,99 +757,99 @@ function DefaultDashboard() {
       </Card>
 
       {/* 系统特性 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
-          <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-8 h-8 text-orange-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <Card className="text-center p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">智能排课</h3>
-          <p className="text-gray-500">基于学生和导师时间自动匹配排课</p>
+          <h3 className="text-lg sm:text-xl font-semibold mb-2">智能排课</h3>
+          <p className="text-gray-500 text-sm sm:text-base">基于学生和导师时间自动匹配排课</p>
         </Card>
 
-        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
-          <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-amber-500" />
+        <Card className="text-center p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">选课单管理</h3>
-          <p className="text-gray-500">完整的选课单创建和进度追踪</p>
+          <h3 className="text-lg sm:text-xl font-semibold mb-2">选课单管理</h3>
+          <p className="text-gray-500 text-sm sm:text-base">完整的选课单创建和进度追踪</p>
         </Card>
 
-        <Card className="text-center p-6 hover:shadow-lg transition-shadow">
-          <div className="w-16 h-16 rounded-2xl bg-yellow-100 flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-yellow-600" />
+        <Card className="text-center p-4 sm:p-6 hover:shadow-lg transition-shadow sm:col-span-2 lg:col-span-1">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-yellow-100 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <Users className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-600" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">多角色权限</h3>
-          <p className="text-gray-500">管理员、顾问、导师、学生分级权限</p>
+          <h3 className="text-lg sm:text-xl font-semibold mb-2">多角色权限</h3>
+          <p className="text-gray-500 text-sm sm:text-base">管理员、顾问、导师、学生分级权限</p>
         </Card>
       </div>
 
       {/* 功能入口 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Link href="/import">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-red-500" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
               </div>
-              <div>
-                <div className="font-medium">数据导入</div>
-                <div className="text-sm text-muted-foreground">批量导入学生/导师/课程</div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm sm:text-base">数据导入</div>
+                <div className="text-xs sm:text-sm text-muted-foreground truncate">批量导入学生/导师/课程</div>
               </div>
             </div>
           </Card>
         </Link>
 
         <Link href="/time-table/student">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-orange-500" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
               </div>
-              <div>
-                <div className="font-medium">学生时间表</div>
-                <div className="text-sm text-muted-foreground">填写可用时间</div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm sm:text-base">学生时间表</div>
+                <div className="text-xs sm:text-sm text-muted-foreground truncate">填写可用时间</div>
               </div>
             </div>
           </Card>
         </Link>
 
         <Link href="/time-table/teacher">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-green-500" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
               </div>
-              <div>
-                <div className="font-medium">导师时间表</div>
-                <div className="text-sm text-muted-foreground">管理授课时间</div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm sm:text-base">导师时间表</div>
+                <div className="text-xs sm:text-sm text-muted-foreground truncate">管理授课时间</div>
               </div>
             </div>
           </Card>
         </Link>
 
         <Link href="/students">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-500" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
               </div>
-              <div>
-                <div className="font-medium">学生管理</div>
-                <div className="text-sm text-muted-foreground">查看学生列表</div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm sm:text-base">学生管理</div>
+                <div className="text-xs sm:text-sm text-muted-foreground truncate">查看学生列表</div>
               </div>
             </div>
           </Card>
         </Link>
 
         <Link href="/teachers">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-purple-500" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
               </div>
-              <div>
-                <div className="font-medium">导师管理</div>
-                <div className="text-sm text-muted-foreground">查看导师列表</div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm sm:text-base">导师管理</div>
+                <div className="text-xs sm:text-sm text-muted-foreground truncate">查看导师列表</div>
               </div>
             </div>
           </Card>

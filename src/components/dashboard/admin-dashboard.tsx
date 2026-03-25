@@ -198,11 +198,11 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* 欢迎横幅 */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl sm:rounded-2xl p-5 sm:p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold mb-2">运营数据看板</h1>
-            <p className="text-white/90">全局概览 · 多维分析 · 智能预警</p>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">运营数据看板</h1>
+            <p className="text-white/90 text-sm sm:text-base">全局概览 · 多维分析 · 智能预警</p>
           </div>
           <div className="flex items-center gap-3">
             <Button 
@@ -211,15 +211,15 @@ export function AdminDashboard() {
               onClick={fetchDashboardData}
               className="text-white hover:bg-white/10"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              刷新数据
+              <RefreshCw className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">刷新数据</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* 核心指标卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
         <MetricCard
           title="学生总数"
           value={data.overview.totalStudents}
@@ -938,13 +938,13 @@ function MetricCard({
 
   const content = (
     <>
-      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center mb-2`}>
-        <Icon className="w-5 h-5 text-white" />
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center mb-1.5 sm:mb-2`}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
       </div>
-      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xl sm:text-2xl font-bold">{value}</div>
       <div className="text-xs text-gray-500">{title}</div>
       {trend && (
-        <Badge variant="outline" className="mt-1 text-xs border-orange-300 text-orange-600">
+        <Badge variant="outline" className="mt-0.5 sm:mt-1 text-[10px] sm:text-xs border-orange-300 text-orange-600">
           {trend}
         </Badge>
       )}
@@ -955,7 +955,7 @@ function MetricCard({
     return (
       <Link href={href}>
         <Card className="group hover:shadow-lg transition-all cursor-pointer h-full">
-          <CardContent className="p-4 flex flex-col items-center text-center">
+          <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center">
             {content}
           </CardContent>
         </Card>
@@ -965,7 +965,7 @@ function MetricCard({
 
   return (
     <Card className="h-full">
-      <CardContent className="p-4 flex flex-col items-center text-center">
+      <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center">
         {content}
       </CardContent>
     </Card>
