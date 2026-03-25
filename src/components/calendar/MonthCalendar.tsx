@@ -197,7 +197,8 @@ export default function MonthCalendar({
   // 获取事件样式
   const getEventStyle = (event: CalendarEvent) => {
     if (event.type === 'time_block' && event.blockType) {
-      return BLOCK_TYPE_COLORS[event.blockType];
+      // 安全获取样式，如果 blockType 不在预定义键中则使用 other 样式
+      return BLOCK_TYPE_COLORS[event.blockType] || BLOCK_TYPE_COLORS.other;
     }
     if (event.type === 'schedule') {
       return {
