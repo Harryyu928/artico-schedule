@@ -20,9 +20,14 @@ import {
   Workflow,
   Receipt,
   CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { UserProvider, useUser } from '@/hooks/use-permissions';
+import { GlobalSearch, SearchButton } from '@/components/global-search';
+import { QuickActionsPanel, QuickActionButtons } from '@/components/quick-actions';
+import { RoleSwitcher } from '@/components/permission-guard';
 
 /**
  * 系统核心工作流程：
@@ -85,15 +90,15 @@ const navigationGroups = [
   },
 ];
 
-// 扁平化导航（用于移动端等场景）
-const flatNavigation = navigationGroups.flatMap(group => group.items);
-
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+// 主布局组件
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
     navigationGroups.map(g => g.title) // 默认全部展开
   );
+  const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useUser();
 
   const toggleGroup = (title: string) => {
     setExpandedGroups(prev => 
@@ -208,27 +213,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* 顶部栏 */}
         <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            
-            <div className="flex-1 lg:flex-none">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white lg:hidden">
-                ARTiCO 教务管理系统
+            {/* 左侧：移动端菜单按钮 + 快捷操作 */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              
+              {/* 快捷操作按钮 - 桌面端 */}
+              <QuickActionButtons />
+            </div>
+
+            {/* 中间：移动端标题 */}
+            <div className="flex-1 lg:flex-none lg:hidden">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                ARTiCO
               </h1>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* 工作流程提示 */}
-              <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-full">
-                <span className="text-orange-500 font-medium">工作流程：</span>
-                <span>选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
+            {/* 右侧：搜索 + 工具 */}
+            <div className="flex items-center gap-3">
+              {/* 全局搜索 */}
+              <SearchButton onClick={() => setSearchOpen(true)} />
+              
+              {/* 快捷操作面板 */}
+              <QuickActionsPanel
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Zap className="w-4 h-4" />
+                    <span className="hidden sm:inline">快捷操作</span>
+                  </Button>
+                }
+              />
+
+              {/* 角色切换器（演示用） */}
+              <div className="hidden md:block">
+                <RoleSwitcher />
               </div>
+            </div>
+          </div>
+          
+          {/* 工作流程提示条 - 移动端隐藏 */}
+          <div className="hidden md:block border-t border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-2 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-orange-500 font-medium">工作流程：</span>
+              <span>选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
             </div>
           </div>
         </header>
@@ -238,6 +271,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* 全局搜索弹窗 */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
+  );
+}
+
+// 导出带 Provider 的布局组件
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <UserProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
+    </UserProvider>
   );
 }

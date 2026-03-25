@@ -850,3 +850,60 @@ export type BatchSettlement = typeof batchSettlements.$inferSelect;
 export type NewBatchSettlement = typeof batchSettlements.$inferInsert;
 export type TeacherSalarySummary = typeof teacherSalarySummary.$inferSelect;
 export type NewTeacherSalarySummary = typeof teacherSalarySummary.$inferInsert;
+
+// ==================== 操作日志表 ====================
+
+// 操作类型枚举
+export const operationTypeEnum = pgEnum('operation_type', [
+  'create',    // 创建
+  'update',    // 更新
+  'delete',    // 删除
+  'view',      // 查看
+  'export',    // 导出
+  'import',    // 导入
+  'login',     // 登录
+  'logout',    // 登出
+  'approve',   // 审批
+  'reject',    // 拒绝
+] as const);
+
+// 操作日志表
+export const operationLogs = pgTable('operation_logs', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  
+  // 操作人信息
+  operatorId: varchar('operator_id', { length: 36 }).notNull(),
+  operatorName: varchar('operator_name', { length: 100 }).notNull(),
+  operatorRole: userRoleEnum('operator_role').notNull(),
+  
+  // 操作信息
+  operationType: operationTypeEnum('operation_type').notNull(),
+  module: varchar('module', { length: 50 }).notNull(), // 模块名称：student, teacher, course, schedule, etc.
+  action: varchar('action', { length: 100 }).notNull(), // 具体操作：create_student, update_schedule, etc.
+  description: text('description').notNull(), // 操作描述
+  
+  // 操作对象
+  entityType: varchar('entity_type', { length: 50 }), // 实体类型：student, teacher, etc.
+  entityId: varchar('entity_id', { length: 36 }), // 实体ID
+  entityName: varchar('entity_name', { length: 200 }), // 实体名称（用于显示）
+  
+  // 变更详情
+  oldValue: jsonb('old_value').$type<Record<string, unknown>>(), // 变更前的值
+  newValue: jsonb('new_value').$type<Record<string, unknown>>(), // 变更后的值
+  
+  // 请求信息
+  ipAddress: varchar('ip_address', { length: 50 }),
+  userAgent: varchar('user_agent', { length: 500 }),
+  requestUrl: varchar('request_url', { length: 500 }),
+  requestMethod: varchar('request_method', { length: 10 }),
+  
+  // 结果
+  success: boolean('success').notNull().default(true),
+  errorMessage: text('error_message'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// 操作日志类型导出
+export type OperationLog = typeof operationLogs.$inferSelect;
+export type NewOperationLog = typeof operationLogs.$inferInsert;
