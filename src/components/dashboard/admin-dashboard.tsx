@@ -147,7 +147,9 @@ export function AdminDashboard() {
   async function fetchDashboardData() {
     try {
       setLoading(true);
-      const response = await fetch('/api/dashboard');
+      const response = await fetch('/api/dashboard', {
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error('获取数据失败');
       const result = await response.json();
       if (result.success) {

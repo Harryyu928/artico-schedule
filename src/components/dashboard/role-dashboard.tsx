@@ -123,7 +123,9 @@ export default function RoleDashboard() {
 
   async function fetchDashboardData() {
     try {
-      const response = await fetch('/api/dashboard');
+      const response = await fetch('/api/dashboard', {
+        credentials: 'include',
+      });
       if (!response.ok) {
         if (response.status === 401) {
           // 未登录，显示默认仪表盘
@@ -684,12 +686,20 @@ function DefaultDashboard() {
   const handleRoleSwitch = async (role: UserRole) => {
     setSwitching(role);
     try {
-      await fetch('/api/auth', {
+      const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'login', role }),
+        credentials: 'include',
       });
-      window.location.reload();
+      const result = await response.json();
+      console.log('登录结果:', result);
+      if (result.success) {
+        window.location.reload();
+      } else {
+        console.error('登录失败:', result.error);
+        setSwitching(null);
+      }
     } catch (err) {
       console.error('切换角色失败:', err);
       setSwitching(null);
