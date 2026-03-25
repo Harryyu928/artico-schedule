@@ -38,6 +38,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import AdminDashboard from './admin-dashboard';
+import TeacherDashboard from './teacher-dashboard';
+import ConsultantDashboard from './consultant-dashboard';
 
 type UserRole = '管理员' | '规划顾问' | '全职导师' | '兼职导师' | '学生';
 
@@ -189,10 +191,12 @@ export default function RoleDashboard() {
         // 管理员使用独立的运营仪表盘组件
         return <AdminDashboard />;
       case '规划顾问':
-        return <ConsultantDashboardContent data={data} />;
+        // 规划顾问使用独立的仪表盘组件
+        return <ConsultantDashboard />;
       case '全职导师':
       case '兼职导师':
-        return <TeacherDashboardContent data={data} />;
+        // 导师使用独立的仪表盘组件
+        return <TeacherDashboard />;
       case '学生':
         return <StudentDashboardContent data={data} />;
       default:
@@ -200,9 +204,9 @@ export default function RoleDashboard() {
     }
   };
 
-  // 管理员仪表盘有自己的用户信息栏，其他角色显示通用用户信息栏
-  if (data?.role === '管理员') {
-    return <AdminDashboard />;
+  // 管理员、规划顾问、导师仪表盘有自己的用户信息栏
+  if (data?.role === '管理员' || data?.role === '规划顾问' || data?.role === '全职导师' || data?.role === '兼职导师') {
+    return renderDashboard();
   }
 
   return (

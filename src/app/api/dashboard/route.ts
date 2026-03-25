@@ -405,6 +405,10 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
 async function getConsultantDashboard(user: typeof users.$inferSelect) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // 周一
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
   
   // 获取签约学生
   const myStudents = await db.query.students.findMany({
@@ -428,15 +432,11 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
           inArray(courseSelectionForms.studentId, studentIds),
           eq(courseSelectionForms.status, '已确认')
         ),
+        limit: 10,
       })
     : [];
   
   // 本周排课情况
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // 周一
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6); // 周日
-  
   const weekSchedules = studentIds.length > 0
     ? await db.query.scheduleResults.findMany({
         where: and(
@@ -448,6 +448,61 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
   
   // 今日课程
   const todaySchedules = weekSchedules.filter(s => s.date === today.toISOString().split('T')[0]);
+  
+  // 本周上课记录
+  const weekClassRecords = studentIds.length > 0
+    ? await db.query.classRecords.findMany({
+        where: and(
+          inArray(classRecords.studentId, studentIds),
+          gte(classRecords.createdAt, weekStart)
+        ),
+      })
+    : [];
+  
+  // 长时间未上课学生
+  const recentClassStudentIds = studentIds.length > 0
+    ? await db.selectDistinct({ studentId: classRecords.studentId })
+        .from(classRecords)
+        .where(and(
+          inArray(classRecords.studentId, studentIds),
+          gte(classRecords.createdAt, twoWeeksAgo)
+        ))
+    : [];
+  
+  const recentStudentIdSet = new Set(recentClassStudentIds.map(r => r.studentId));
+  const inactiveStudents = myStudents.filter(s => !recentStudentIdSet.has(s.id));
+  
+  // 学生上课情况统计
+  const studentClassStats = await Promise.all(
+    myStudents.slice(0, 20).map(async (student) => {
+      const weekRecords = await db.select({ count: count() })
+        .from(classRecords)
+        .where(and(
+          eq(classRecords.studentId, student.id),
+          gte(classRecords.createdAt, weekStart)
+        ));
+      
+      const monthRecords = await db.select({ count: count() })
+        .from(classRecords)
+        .where(and(
+          eq(classRecords.studentId, student.id),
+          gte(classRecords.createdAt, monthStart)
+        ));
+      
+      const lastRecord = await db.query.classRecords.findFirst({
+        where: eq(classRecords.studentId, student.id),
+        orderBy: desc(classRecords.createdAt),
+      });
+      
+      return {
+        studentId: student.id,
+        studentName: student.name,
+        weekRecords: weekRecords[0].count,
+        monthRecords: monthRecords[0].count,
+        lastClassDate: lastRecord?.classDate || null,
+      };
+    })
+  );
 
   return NextResponse.json({
     success: true,
@@ -465,11 +520,13 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
         todaySchedules: todaySchedules.length,
         weekSchedules: weekSchedules.length,
         lowHourCount: lowHourStudents.length,
+        inactiveCount: inactiveStudents.length,
+        weekClassRecords: weekClassRecords.length,
       },
       
       studentAnalytics: {
         stageDistribution,
-        lowHourStudents: lowHourStudents.slice(0, 5).map(s => ({
+        lowHourStudents: lowHourStudents.slice(0, 10).map(s => ({
           id: s.id,
           name: s.name,
           remaining: s.totalHours - s.usedHours,
@@ -478,28 +535,41 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
         })),
       },
       
-      pendingFormsList: pendingForms.slice(0, 5).map(f => ({
+      pendingFormsList: pendingForms.slice(0, 10).map(f => ({
         id: f.id,
         formId: f.formId,
         status: f.status,
+        studentId: f.studentId,
+        createdAt: f.createdAt?.toISOString(),
       })),
       
-      todaySchedule: todaySchedules.slice(0, 5).map(s => ({
+      todaySchedule: todaySchedules.slice(0, 10).map(s => ({
         id: s.id,
         time: s.timeSlot,
         status: s.status,
+        studentId: s.studentId,
       })),
       
+      studentClassRecords: studentClassStats,
+      
       urgentTasks: [
+        ...(inactiveStudents.length > 0 ? [{
+          type: 'warning',
+          message: `${inactiveStudents.length}位学生超过14天未上课，请关注`,
+          priority: 'high' as const,
+          action: '/students?filter=inactive',
+        }] : []),
         ...(lowHourStudents.length > 0 ? [{
           type: 'warning',
           message: `${lowHourStudents.length}位学生课时不足，请及时跟进续费`,
-          priority: 'high',
+          priority: 'high' as const,
+          action: '/students?filter=lowHours',
         }] : []),
         ...(pendingForms.length > 0 ? [{
           type: 'form',
           message: `${pendingForms.length}份选课单待处理`,
-          priority: 'medium',
+          priority: 'medium' as const,
+          action: '/selection-forms?status=pending',
         }] : []),
       ],
       
@@ -522,6 +592,7 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   
   // 获取导师信息
   const teacher = await db.query.teachers.findFirst({
@@ -534,7 +605,11 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
       data: {
         role: user.role,
         user: { id: user.id, name: user.name },
-        stats: { todayCourses: 0, weekHours: 0, maxWeekHours: 20, totalStudents: 0, pendingRecords: 0 },
+        overview: { todayCourses: 0, weekHours: 0, maxWeekHours: 20, totalStudents: 0, pendingRecords: 0 },
+        todayCourses: [],
+        weekSchedule: [],
+        studentProgress: [],
+        pendingRecords: [],
         quickActions: [],
       },
     });
@@ -554,31 +629,67 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   // 统计本周课时
   const weekHours = weekSchedules.reduce((sum, s) => sum + s.hours, 0);
   
-  // 待填上课记录
-  const pendingRecordsCountResult = await db.select({ count: count() })
-    .from(classRecords)
-    .where(and(
+  // 待填上课记录（详情）
+  const pendingRecordsList = await db.query.classRecords.findMany({
+    where: and(
       eq(classRecords.teacherId, teacher.id),
       eq(classRecords.attendanceStatus, '已排课')
-    ));
+    ),
+    limit: 10,
+    orderBy: desc(classRecords.classDate),
+  });
+  
+  // 最近上课记录
+  const recentRecords = await db.query.classRecords.findMany({
+    where: and(
+      eq(classRecords.teacherId, teacher.id),
+      eq(classRecords.attendanceStatus, '已完成')
+    ),
+    limit: 5,
+    orderBy: desc(classRecords.createdAt),
+  });
   
   // 我的学生（去重）
   const uniqueStudentIds = [...new Set(weekSchedules.map(s => s.studentId))];
   
-  // 学生进度（简化版）
-  const myStudents = uniqueStudentIds.length > 0
+  // 获取学生信息
+  const myStudentsList = uniqueStudentIds.length > 0
     ? await db.query.students.findMany({
         where: inArray(students.id, uniqueStudentIds),
-        limit: 10,
       })
     : [];
   
-  const studentProgress = myStudents.map(s => ({
+  const studentMap = new Map(myStudentsList.map(s => [s.id, s]));
+  
+  // 获取课程信息
+  const courseIds = [...new Set(weekSchedules.map(s => s.courseId))];
+  const courseList = courseIds.length > 0
+    ? await db.query.courses.findMany({
+        where: inArray(courses.id, courseIds),
+      })
+    : [];
+  
+  const courseMap = new Map(courseList.map(c => [c.id, c]));
+  
+  // 学生进度
+  const studentProgress = myStudentsList.map(s => ({
     id: s.id,
     name: s.name,
     progress: s.totalHours > 0 ? Math.round((s.usedHours / s.totalHours) * 100) : 0,
     remaining: s.totalHours - s.usedHours,
+    totalHours: s.totalHours,
+    usedHours: s.usedHours,
+    major: s.major,
+    stage: s.currentStage,
   }));
+  
+  // 本月课程统计
+  const monthSchedules = await db.query.scheduleResults.findMany({
+    where: and(
+      eq(scheduleResults.teacherId, teacher.id),
+      gte(scheduleResults.createdAt, monthStart)
+    ),
+  });
 
   return NextResponse.json({
     success: true,
@@ -598,7 +709,9 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
         maxWeekHours: teacher.maxWeeklyHours,
         hourPercentage: teacher.maxWeeklyHours > 0 ? Math.round((weekHours / teacher.maxWeeklyHours) * 100) : 0,
         totalStudents: uniqueStudentIds.length,
-        pendingRecords: pendingRecordsCountResult[0].count,
+        pendingRecords: pendingRecordsList.length,
+        monthCourses: monthSchedules.length,
+        monthHours: monthSchedules.reduce((sum, s) => sum + s.hours, 0),
       },
       
       todayCourses: todaySchedules.map(s => ({
@@ -606,6 +719,10 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
         time: s.timeSlot,
         status: s.status,
         hours: s.hours,
+        studentId: s.studentId,
+        studentName: studentMap.get(s.studentId)?.name,
+        courseId: s.courseId,
+        courseName: courseMap.get(s.courseId)?.name,
       })),
       
       weekSchedule: weekSchedules.map(s => ({
@@ -614,9 +731,32 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
         weekDay: s.weekDay,
         time: s.timeSlot,
         status: s.status,
+        studentId: s.studentId,
+        studentName: studentMap.get(s.studentId)?.name,
+        courseId: s.courseId,
+        courseName: courseMap.get(s.courseId)?.name,
       })),
       
       studentProgress,
+      
+      pendingRecords: pendingRecordsList.map(r => ({
+        id: r.id,
+        date: r.classDate,
+        studentId: r.studentId,
+        studentName: studentMap.get(r.studentId)?.name,
+        courseId: r.courseId,
+        courseName: courseMap.get(r.courseId)?.name,
+      })),
+      
+      recentClassRecords: recentRecords.map(r => ({
+        id: r.id,
+        date: r.classDate,
+        studentId: r.studentId,
+        studentName: studentMap.get(r.studentId)?.name,
+        courseId: r.courseId,
+        courseName: courseMap.get(r.courseId)?.name,
+        contentSummary: r.contentSummary?.slice(0, 50),
+      })),
       
       quickActions: [
         { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock' },
