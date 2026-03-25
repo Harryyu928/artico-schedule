@@ -56,11 +56,31 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body: BatchSetTimeAvailabilityRequest = await request.json();
+    const body = await request.json();
     
-    const availabilities = await batchSetTimeAvailability(body);
+    // 兼容前端发送的两种格式
+    // 格式1: { user_id, user_role, name, availabilities: [...] }
+    // 格式2: { userId, userRole, slots: [...] }
+    const availabilities = body.availabilities || body.slots || [];
+    const userId = body.user_id || body.userId;
+    const userRole = body.user_role || body.userRole;
+    const name = body.name || '';
     
-    return NextResponse.json(availabilities);
+    // 转换字段名（前端驼峰 -> 后端下划线）
+    const normalizedAvailabilities = availabilities.map((a: any) => ({
+      week_day: a.week_day || a.weekDay,
+      time_slot: a.time_slot || a.timeSlot,
+      is_available: a.is_available ?? a.isAvailable ?? true,
+    }));
+    
+    const results = await batchSetTimeAvailability({
+      user_id: userId,
+      user_role: userRole,
+      name,
+      availabilities: normalizedAvailabilities,
+    });
+    
+    return NextResponse.json(results);
   } catch (error) {
     console.error('批量设置时间可用性失败:', error);
     return NextResponse.json(
