@@ -201,7 +201,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-orange-50/50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
       {/* 移动端侧边栏遮罩 */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -209,7 +209,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -218,7 +218,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       {/* 侧边栏 */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border-r border-white/50 dark:border-slate-700/50 shadow-2xl transition-transform duration-300 ease-in-out",
           "lg:translate-x-0 lg:shadow-xl",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -229,7 +229,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="flex items-center justify-between h-16 px-6 border-b border-gray-200/50 dark:border-gray-700/50"
+            className="flex items-center justify-between h-16 px-6 border-b border-slate-200/60 dark:border-slate-700/60"
           >
             <Link href="/" className="flex items-center gap-2 group">
               <motion.div 
@@ -268,24 +268,24 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50/50 to-amber-50/50 dark:from-gray-800/50 dark:to-gray-800/50"
+              className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-orange-100/70 to-amber-100/70 dark:from-slate-800/70 dark:to-slate-800/70"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <motion.div 
                     whileHover={{ scale: 1.1 }}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-md"
+                    className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30"
                   >
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-semibold text-white">
                       {user.name.charAt(0)}
                     </span>
                   </motion.div>
                   <div>
-                    <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{user.role}</p>
                   </div>
                 </div>
-                <Shield className="w-4 h-4 text-muted-foreground" />
+                <Shield className="w-4 h-4 text-slate-400" />
               </div>
             </motion.div>
           )}
@@ -304,7 +304,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <motion.button
                   onClick={() => toggleGroup(group.title)}
                   whileHover={{ x: 2 }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
                 >
                   <span>{group.title}</span>
                   <motion.div
@@ -339,8 +339,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                               className={cn(
                                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                                 isActive
-                                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25"
-                                  : "text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 dark:text-gray-300 dark:hover:from-gray-700 dark:hover:to-gray-700"
+                                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30"
+                                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orange-600 dark:hover:text-orange-400"
                               )}
                               onClick={() => setSidebarOpen(false)}
                               title={item.description}
@@ -377,17 +377,17 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="p-4 border-t border-gray-200/50 dark:border-gray-700/50"
+            className="p-4 border-t border-slate-200/60 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-800/50"
           >
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mb-2">
               <motion.div 
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="w-2 h-2 bg-green-500 rounded-full"
+                className="w-2 h-2 bg-emerald-500 rounded-full shadow-sm shadow-emerald-500/50"
               />
-              <span>系统运行正常</span>
+              <span className="font-medium">系统运行正常</span>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-slate-500 dark:text-slate-500">
               © 2025 ARTiCO 教务管理系统 v1.0.0
             </p>
           </motion.div>
@@ -400,7 +400,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm"
+          className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-b border-slate-200/60 dark:border-slate-700/60 shadow-sm"
         >
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* 左侧：移动端菜单按钮 + 快捷操作 */}
@@ -456,14 +456,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="hidden md:block border-t border-gray-100/50 dark:border-gray-700/50 px-4 sm:px-6 py-2 bg-gradient-to-r from-orange-50/50 to-amber-50/50 dark:from-gray-800/50 dark:to-gray-800/50"
+            className="hidden md:block border-t border-slate-200/60 dark:border-slate-700/60 px-4 sm:px-6 py-2.5 bg-slate-50/80 dark:bg-slate-800/80"
           >
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span className="text-orange-500 font-medium flex items-center gap-1">
+            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <span className="text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
                 工作流程：
               </span>
-              <span>选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
+              <span className="font-medium">选课单 → 排课 → 上课记录 → 结课审核 → 课酬统计</span>
             </div>
           </motion.div>
         </motion.header>
