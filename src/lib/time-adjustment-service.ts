@@ -17,10 +17,19 @@ import { v4 as uuidv4 } from 'uuid';
 
 // ==================== 类型定义 ====================
 
-// 表是否存在标记（首次查询失败后设为 false）
-let teacherTimeBlocksTableExists = true;
-let scheduleCancellationsTableExists = true;
-let notificationsTableExists = true;
+// 辅助函数：检查错误是否为表不存在
+function isTableNotFoundError(error: any): boolean {
+  const errorCode = error?.code || error?.cause?.code;
+  const errorMsg = error?.message || error?.cause?.message || '';
+  return errorCode === '42P01' || errorMsg.includes('does not exist');
+}
+
+// 辅助函数：检查错误是否为列不存在
+function isColumnNotFoundError(error: any): boolean {
+  const errorCode = error?.code || error?.cause?.code;
+  const errorMsg = error?.message || error?.cause?.message || '';
+  return errorCode === '42703' || errorMsg.includes('does not exist');
+}
 
 export interface CreateTimeBlockRequest {
   teacherId: string;
@@ -77,31 +86,7 @@ export async function createTimeBlock(request: CreateTimeBlockRequest) {
     console.warn('查询排课记录失败（表可能不存在）:', error);
   }
 
-  // 创建时间调整记录（表可能不存在，需要错误处理）
-  if (!teacherTimeBlocksTableExists) {
-    // 表不存在，返回模拟数据
-    return {
-      timeBlock: {
-        id: uuidv4(),
-        teacherId,
-        startDate,
-        endDate,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        isAllDay,
-        blockType,
-        reason,
-        status: 'confirmed',
-        affectedSchedules: affectedSchedules.map(s => s.id),
-        notificationSent: false,
-        createdBy,
-        createdAt: new Date().toISOString(),
-      },
-      affectedSchedules,
-      affectedCount: affectedSchedules.length,
-    };
-  }
-
+  // 创建时间调整记录
   try {
     const [timeBlock] = await db.insert(teacherTimeBlocks).values({
       id: uuidv4(),
@@ -132,15 +117,9 @@ export async function createTimeBlock(request: CreateTimeBlockRequest) {
       affectedCount: affectedSchedules.length,
     };
   } catch (error: any) {
-    // 检查各种可能的错误格式
-    const errorCode = error.code || error.cause?.code;
-    const errorMsg = error.message || error.cause?.message || '';
-    
-    // 如果是表不存在的错误 (PostgreSQL 错误码 42P01)
-    if (errorCode === '42P01' || errorMsg.includes('does not exist')) {
-      teacherTimeBlocksTableExists = false;
+    // 如果是表不存在的错误，返回模拟数据
+    if (isTableNotFoundError(error)) {
       console.warn('teacher_time_blocks 表不存在，使用模拟模式');
-      // 返回模拟数据
       return {
         timeBlock: {
           id: uuidv4(),
@@ -162,6 +141,7 @@ export async function createTimeBlock(request: CreateTimeBlockRequest) {
         affectedCount: affectedSchedules.length,
       };
     }
+    console.error('创建时间调整记录失败:', error);
     throw error;
   }
 }
@@ -174,11 +154,6 @@ export async function getTeacherTimeBlocks(teacherId: string, options?: {
   endDate?: string;
   status?: string;
 }) {
-  // 如果表不存在，返回空数组
-  if (!teacherTimeBlocksTableExists) {
-    return [];
-  }
-
   try {
     const conditions = [eq(teacherTimeBlocks.teacherId, teacherId)];
     
@@ -198,8 +173,7 @@ export async function getTeacherTimeBlocks(teacherId: string, options?: {
       .orderBy(sql`${teacherTimeBlocks.startDate} DESC`);
   } catch (error: any) {
     // 如果是表不存在的错误
-    if (error.code === '42P01' || error.message?.includes('does not exist')) {
-      teacherTimeBlocksTableExists = false;
+    if (isTableNotFoundError(error)) {
       console.warn('teacher_time_blocks 表不存在');
       return [];
     }
@@ -212,10 +186,6 @@ export async function getTeacherTimeBlocks(teacherId: string, options?: {
  * 取消时间调整
  */
 export async function cancelTimeBlock(timeBlockId: string, cancelledBy: string) {
-  if (!teacherTimeBlocksTableExists) {
-    return { success: true, message: '模拟模式下已取消' };
-  }
-
   try {
     const [updated] = await db.update(teacherTimeBlocks)
       .set({
@@ -244,8 +214,7 @@ export async function cancelTimeBlock(timeBlockId: string, cancelledBy: string) 
 
     return updated;
   } catch (error: any) {
-    if (error.code === '42P01' || error.message?.includes('does not exist')) {
-      teacherTimeBlocksTableExists = false;
+    if (isTableNotFoundError(error)) {
       return { success: true, message: '模拟模式下已取消' };
     }
     throw error;

@@ -514,6 +514,22 @@ export default function AvailabilityPage() {
     setShowCreateDialog(true);
   };
 
+  // 拖拽选择日期范围创建
+  const handleDateRangeSelect = (startDate: Date, endDate: Date) => {
+    if (userType !== 'teacher' || !selectedUserId) return;
+    
+    setTimeBlockForm({
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
+      startTime: '',
+      endTime: '',
+      isAllDay: true,
+      blockType: 'temporary_unavailable',
+      reason: '',
+    });
+    setShowCreateDialog(true);
+  };
+
   // 将周时间表转换为日历事件（显示未来4周）
   const calendarEvents = useMemo<CalendarEvent[]>(() => {
     const events: CalendarEvent[] = [];
@@ -534,6 +550,7 @@ export default function AvailabilityPage() {
             startTime: block.startTime || undefined,
             endTime: block.endTime || undefined,
             type: 'time_block',
+            blockType: block.blockType,
             status: block.status,
             detail: block.reason,
           });
@@ -822,6 +839,7 @@ export default function AvailabilityPage() {
                     <MonthCalendar
                       events={calendarEvents}
                       onDateClick={handleDateClick}
+                      onDateRangeSelect={userType === 'teacher' ? handleDateRangeSelect : undefined}
                     />
                   ) : (
                     <div className="p-12 text-center text-gray-400">
