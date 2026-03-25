@@ -907,3 +907,179 @@ export const operationLogs = pgTable('operation_logs', {
 // 操作日志类型导出
 export type OperationLog = typeof operationLogs.$inferSelect;
 export type NewOperationLog = typeof operationLogs.$inferInsert;
+
+// ==================== 临时时间调整相关表 ====================
+
+// 时间调整类型枚举
+export const timeBlockTypeEnum = pgEnum('time_block_type', [
+  'temporary_unavailable', // 临时不可用
+  'meeting',               // 会议
+  'leave',                 // 请假
+  'training',              // 培训
+  'other',                 // 其他
+] as const);
+
+// 时间调整状态枚举
+export const timeBlockStatusEnum = pgEnum('time_block_status', [
+  'pending',    // 待确认
+  'confirmed',  // 已确认
+  'cancelled',  // 已取消
+] as const);
+
+// 课程取消原因枚举
+export const cancellationReasonEnum = pgEnum('cancellation_reason', [
+  'teacher_emergency',     // 导师紧急情况
+  'teacher_leave',         // 导师请假
+  'student_request',       // 学生请求
+  'student_emergency',     // 学生紧急情况
+  'course_conflict',       // 课程冲突
+  'other',                 // 其他
+] as const);
+
+// 导师不可排课时间段表
+export const teacherTimeBlocks = pgTable('teacher_time_blocks', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id, { onDelete: 'cascade' }),
+  
+  // 时间信息
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  startTime: varchar('start_time', { length: 10 }), // 具体时间段，如 "10:00"
+  endTime: varchar('end_time', { length: 10 }),     // 如 "12:00"
+  isAllDay: boolean('is_all_day').notNull().default(true),
+  
+  // 类型与原因
+  blockType: timeBlockTypeEnum('block_type').notNull().default('temporary_unavailable'),
+  reason: text('reason').notNull(),
+  
+  // 状态
+  status: timeBlockStatusEnum('status').notNull().default('confirmed'),
+  
+  // 关联的取消课程
+  affectedSchedules: jsonb('affected_schedules').$type<string[]>(), // 受影响的排课ID列表
+  
+  // 通知状态
+  notificationSent: boolean('notification_sent').notNull().default(false),
+  notifiedTo: jsonb('notified_to').$type<string[]>(), // 通知接收人列表
+  
+  // 审批信息（如果是请假）
+  approvedBy: varchar('approved_by', { length: 36 }),
+  approvedAt: timestamp('approved_at'),
+  approvalNote: text('approval_note'),
+  
+  createdBy: varchar('created_by', { length: 36 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 课程取消记录表
+export const scheduleCancellations = pgTable('schedule_cancellations', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  cancellationId: varchar('cancellation_id', { length: 50 }).notNull().unique(), // 业务编号
+  
+  // 关联信息
+  scheduleId: varchar('schedule_id', { length: 36 }).notNull().references(() => scheduleResults.id, { onDelete: 'cascade' }),
+  teacherId: varchar('teacher_id', { length: 36 }).notNull().references(() => teachers.id),
+  studentId: varchar('student_id', { length: 36 }).notNull().references(() => students.id),
+  courseId: varchar('course_id', { length: 36 }).notNull().references(() => courses.id),
+  
+  // 原课程信息快照
+  originalDate: date('original_date').notNull(),
+  originalTimeSlot: varchar('original_time_slot', { length: 10 }).notNull(),
+  originalHours: integer('original_hours').notNull().default(2),
+  
+  // 取消信息
+  cancellationReason: cancellationReasonEnum('cancellation_reason').notNull(),
+  cancellationDetail: text('cancellation_detail'), // 详细说明
+  cancelledBy: varchar('cancelled_by', { length: 36 }).notNull(), // 取消操作人
+  cancelledAt: timestamp('cancelled_at').notNull().defaultNow(),
+  
+  // 补课安排
+  makeupRequired: boolean('makeup_required').notNull().default(true), // 是否需要补课
+  makeupScheduled: boolean('makeup_scheduled').notNull().default(false), // 是否已安排补课
+  makeupScheduleId: varchar('makeup_schedule_id', { length: 36 }), // 补课排课ID
+  
+  // 通知状态
+  studentNotified: boolean('student_notified').notNull().default(false),
+  consultantNotified: boolean('consultant_notified').notNull().default(false),
+  adminNotified: boolean('admin_notified').notNull().default(false),
+  
+  // 关联的时间调整
+  timeBlockId: varchar('time_block_id', { length: 36 }).references(() => teacherTimeBlocks.id),
+  
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// 通知类型枚举
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'schedule_cancelled',     // 课程取消
+  'schedule_rescheduled',   // 课程改期
+  'time_block_created',     // 时间调整创建
+  'makeup_required',        // 需要补课
+  'leave_approved',         // 请假批准
+  'leave_rejected',         // 请假拒绝
+  'reminder',               // 提醒
+] as const);
+
+// 通知渠道枚举
+export const notificationChannelEnum = pgEnum('notification_channel', [
+  'system',  // 系统内通知
+  'feishu',  // 飞书
+  'email',   // 邮件
+  'sms',     // 短信
+] as const);
+
+// 通知状态枚举
+export const notificationStatusEnum = pgEnum('notification_status', [
+  'pending',   // 待发送
+  'sent',      // 已发送
+  'delivered', // 已送达
+  'failed',    // 发送失败
+  'read',      // 已读
+] as const);
+
+// 通知表
+export const notifications = pgTable('notifications', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  
+  // 通知类型
+  type: notificationTypeEnum('type').notNull(),
+  
+  // 接收人
+  recipientId: varchar('recipient_id', { length: 36 }).notNull(),
+  recipientRole: userRoleEnum('recipient_role').notNull(),
+  
+  // 通知内容
+  title: varchar('title', { length: 200 }).notNull(),
+  content: text('content').notNull(),
+  
+  // 关联实体
+  entityType: varchar('entity_type', { length: 50 }), // schedule, time_block, etc.
+  entityId: varchar('entity_id', { length: 36 }),
+  
+  // 发送渠道
+  channels: jsonb('channels').$type<string[]>().notNull().default(['system']), // 发送渠道列表
+  
+  // 状态
+  status: notificationStatusEnum('status').notNull().default('pending'),
+  sentAt: timestamp('sent_at'),
+  readAt: timestamp('read_at'),
+  
+  // 错误信息
+  errorMessage: text('error_message'),
+  
+  createdBy: varchar('created_by', { length: 36 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// 类型导出
+export type TeacherTimeBlock = typeof teacherTimeBlocks.$inferSelect;
+export type NewTeacherTimeBlock = typeof teacherTimeBlocks.$inferInsert;
+export type ScheduleCancellation = typeof scheduleCancellations.$inferSelect;
+export type NewScheduleCancellation = typeof scheduleCancellations.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
