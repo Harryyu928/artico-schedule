@@ -8,9 +8,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { classRecords, students, teachers, courses } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { 
+  classRecords, 
+  students, 
+  teachers, 
+  courses,
+  courseSelectionItems,
+  workflowInstances,
+  workflowTaskInstances,
+} from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
+import { 
+  completeTaskByName, 
+  getEntityWorkflowInstance 
+} from '@/lib/workflow-service';
 
 // GET - 获取单个记录详情
 export async function GET(
@@ -123,6 +135,8 @@ export async function PUT(
         { status: 404 }
       );
     }
+
+    const previousStatus = existing[0].attendanceStatus;
     
     // 构建更新数据
     const updateData: Record<string, unknown> = {
@@ -163,6 +177,27 @@ export async function PUT(
     await db.update(classRecords)
       .set(updateData)
       .where(eq(classRecords.id, id));
+
+    // 模块联动：当上课记录完成时
+    const isCompleting = body.attendanceStatus === '已完成' && previousStatus !== '已完成';
+    if (isCompleting) {
+      const record = existing[0];
+      
+      // 1. 更新选课单进度
+      if (record.selectionItemId) {
+        await updateSelectionItemProgress(record.selectionItemId, record.actualDuration);
+      }
+      
+      // 2. 完成相关工作流任务
+      await triggerWorkflowLinkage(record.studentId, '填写上课记录');
+    }
+
+    // 模块联动：当学生签字完成时
+    const isSigning = body.studentSignature && !existing[0].studentSignature;
+    if (isSigning) {
+      const record = existing[0];
+      await triggerWorkflowLinkage(record.studentId, '确认学生签字');
+    }
     
     return NextResponse.json({
       success: true,
@@ -174,6 +209,63 @@ export async function PUT(
       { success: false, error: '更新记录失败' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * 更新选课单明细的完成课时
+ */
+async function updateSelectionItemProgress(selectionItemId: string, duration: number) {
+  try {
+    // 获取当前进度
+    const item = await db.query.courseSelectionItems.findFirst({
+      where: eq(courseSelectionItems.id, selectionItemId),
+    });
+
+    if (!item) return;
+
+    // 更新完成课时
+    const newCompletedHours = (item.completedHours || 0) + Math.round(duration / 60);
+    
+    // 更新状态
+    let newStatus = item.status;
+    if (newCompletedHours >= item.plannedHours) {
+      newStatus = '已完成';
+    } else if (newCompletedHours > 0) {
+      newStatus = '上课中';
+    }
+
+    await db.update(courseSelectionItems)
+      .set({
+        completedHours: newCompletedHours,
+        status: newStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(courseSelectionItems.id, selectionItemId));
+
+    console.log(`[Linkage] Updated selection item ${selectionItemId}: ${newCompletedHours}/${item.plannedHours} hours`);
+  } catch (error) {
+    console.error('更新选课单进度失败:', error);
+  }
+}
+
+/**
+ * 触发工作流联动
+ */
+async function triggerWorkflowLinkage(studentId: string, taskName: string) {
+  try {
+    // 获取学生的入学流程工作流实例
+    const instance = await getEntityWorkflowInstance('student', studentId);
+    
+    if (instance) {
+      // 完成对应任务
+      const result = await completeTaskByName(instance.id, taskName);
+      if (result) {
+        console.log(`[Linkage] Completed workflow task "${taskName}" for student ${studentId}`);
+      }
+    }
+  } catch (error) {
+    console.error('工作流联动失败:', error);
   }
 }
 

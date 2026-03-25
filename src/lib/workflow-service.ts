@@ -112,6 +112,7 @@ export async function createWorkflowInstance(params: {
 
   // 创建任务实例
   let totalTasks = 0;
+  const createdTasks: { templateId: string; instanceId: string }[] = [];
   
   for (const stageDef of stageDefs) {
     const taskTemplates = await db.select()
@@ -120,8 +121,9 @@ export async function createWorkflowInstance(params: {
       .orderBy(workflowTaskTemplates.taskOrder);
     
     for (const template of taskTemplates) {
+      const taskInstanceId = uuidv4();
       await db.insert(workflowTaskInstances).values({
-        id: uuidv4(),
+        id: taskInstanceId,
         instanceId,
         templateId: template.id,
         stageId: stageDef.id,
@@ -133,8 +135,32 @@ export async function createWorkflowInstance(params: {
         checklist: template.checklist as any || [],
         totalChecklist: (template.checklist as any)?.length || 0,
         completedChecklist: 0,
+        dependsOn: template.dependsOn as any || null,
+        blockedByDependencies: (template.dependsOn && (template.dependsOn as any).length > 0) || false,
       });
       totalTasks++;
+      createdTasks.push({ templateId: template.id, instanceId: taskInstanceId });
+    }
+  }
+  
+  // 处理依赖关系映射（将模板依赖转换为实例依赖）
+  const templateToInstanceMap = new Map(createdTasks.map(t => [t.templateId, t.instanceId]));
+  
+  for (const { templateId, instanceId } of createdTasks) {
+    const template = await db.query.workflowTaskTemplates.findFirst({
+      where: eq(workflowTaskTemplates.id, templateId),
+    });
+    
+    if (template?.dependsOn && (template.dependsOn as string[]).length > 0) {
+      const instanceDependencies = (template.dependsOn as string[])
+        .map(depTemplateId => templateToInstanceMap.get(depTemplateId))
+        .filter(Boolean) as string[];
+      
+      if (instanceDependencies.length > 0) {
+        await db.update(workflowTaskInstances)
+          .set({ dependsOn: instanceDependencies })
+          .where(eq(workflowTaskInstances.id, instanceId));
+      }
     }
   }
   
@@ -187,10 +213,57 @@ export async function completeTaskByName(instanceId: string, taskName: string) {
     })
     .where(eq(workflowTaskInstances.id, task.id));
   
+  // 解除依赖此任务的其他任务的阻塞状态
+  await unblockDependentTasks(task.id);
+  
   // 更新工作流进度
   await updateWorkflowProgress(instanceId);
   
   return task;
+}
+
+/**
+ * 解除依赖任务阻塞
+ */
+async function unblockDependentTasks(completedTaskId: string) {
+  try {
+    // 获取所有依赖此任务的任务
+    const allTasks = await db.select()
+      .from(workflowTaskInstances);
+    
+    const dependentTasks = allTasks.filter(t => 
+      t.dependsOn && 
+      (t.dependsOn as string[]).includes(completedTaskId) &&
+      t.status === 'pending'
+    );
+    
+    for (const dependentTask of dependentTasks) {
+      // 检查所有依赖是否都已完成
+      const dependencies = dependentTask.dependsOn as string[] || [];
+      const allCompleted = await Promise.all(
+        dependencies.map(async (depId) => {
+          const depTask = await db.query.workflowTaskInstances.findFirst({
+            where: eq(workflowTaskInstances.id, depId),
+          });
+          return depTask?.status === 'completed';
+        })
+      );
+      
+      // 如果所有依赖都已完成，解除阻塞
+      if (allCompleted.every(Boolean)) {
+        await db.update(workflowTaskInstances)
+          .set({
+            blockedByDependencies: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(workflowTaskInstances.id, dependentTask.id));
+        
+        console.log(`[Workflow] Unblocked task: ${dependentTask.name}`);
+      }
+    }
+  } catch (error) {
+    console.error('解除任务阻塞失败:', error);
+  }
 }
 
 /**

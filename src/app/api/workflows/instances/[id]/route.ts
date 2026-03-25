@@ -44,9 +44,13 @@ export async function GET(
       .where(eq(workflowStageDefinitions.workflowId, instance.workflowId))
       .orderBy(workflowStageDefinitions.stageOrder);
     
-    // 获取每个阶段的任务实例
+    // 计算工作流开始时间
+    const workflowStartTime = instance.startedAt || instance.createdAt;
+    const startTime = new Date(workflowStartTime);
+    
+    // 获取每个阶段的任务实例，并计算预估时间
     const stages = await Promise.all(
-      stageDefs.map(async (stageDef) => {
+      stageDefs.map(async (stageDef, index) => {
         const tasks = await db.select()
           .from(workflowTaskInstances)
           .where(and(
@@ -65,7 +69,49 @@ export async function GET(
             stageStatus = 'in_progress';
           }
         }
+
+        // 计算预估时间
+        const estimatedDays = stageDef.estimatedDays || calculateDefaultEstimatedDays(stageDef.stageOrder);
+        const estimatedHours = estimatedDays * 8; // 假设每天8小时工作时间
+
+        // 计算实际用时
+        let actualDuration = 0;
+        let stageStartTime: Date | null = null;
+        let stageEndTime: Date | null = null;
         
+        if (stageStatus !== 'pending') {
+          // 找到阶段开始时间（第一个任务的开始时间或创建时间）
+          const firstTask = tasks.find(t => t.startedAt || t.createdAt);
+          if (firstTask) {
+            stageStartTime = firstTask.startedAt ? new Date(firstTask.startedAt) : new Date(firstTask.createdAt);
+          }
+          
+          // 找到阶段结束时间
+          if (stageStatus === 'completed') {
+            const lastCompletedTask = tasks
+              .filter(t => t.completedAt)
+              .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
+            if (lastCompletedTask) {
+              stageEndTime = new Date(lastCompletedTask.completedAt!);
+            }
+          }
+          
+          // 计算实际用时（小时）
+          if (stageStartTime) {
+            const endTime = stageEndTime || new Date();
+            actualDuration = Math.round((endTime.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60));
+          }
+        }
+
+        // 计算预估开始和结束日期
+        const estimatedStartDate = new Date(startTime);
+        for (let i = 0; i < index; i++) {
+          const prevStage = stageDefs[i];
+          estimatedStartDate.setDate(estimatedStartDate.getDate() + (prevStage.estimatedDays || 3));
+        }
+        const estimatedEndDate = new Date(estimatedStartDate);
+        estimatedEndDate.setDate(estimatedEndDate.getDate() + estimatedDays);
+
         return {
           id: stageDef.id,
           stageOrder: stageDef.stageOrder,
@@ -75,6 +121,16 @@ export async function GET(
           status: stageStatus,
           completedTasks,
           totalTasks: tasks.length,
+          // 预估时间
+          estimatedDays,
+          estimatedHours,
+          estimatedStartDate: estimatedStartDate.toISOString().split('T')[0],
+          estimatedEndDate: estimatedEndDate.toISOString().split('T')[0],
+          // 实际用时
+          actualDuration,
+          actualDurationFormatted: formatDuration(actualDuration),
+          // 进度百分比
+          progressPercentage: tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0,
           tasks: tasks.map(t => ({
             id: t.id,
             name: t.name,
@@ -84,10 +140,20 @@ export async function GET(
             priority: t.priority,
             completedAt: t.completedAt,
             checklist: t.checklist,
+            // 任务预估时间（分钟）
+            estimatedMinutes: stageDef.estimatedDays ? Math.round((estimatedDays * 8 * 60) / tasks.length) : undefined,
           })),
         };
       })
     );
+
+    // 计算总预估时间
+    const totalEstimatedDays = stages.reduce((sum, s) => sum + s.estimatedDays, 0);
+    const totalActualHours = stages.reduce((sum, s) => sum + s.actualDuration, 0);
+    
+    // 预计完成日期
+    const estimatedCompletionDate = new Date(startTime);
+    estimatedCompletionDate.setDate(estimatedCompletionDate.getDate() + totalEstimatedDays);
 
     // 获取实体名称
     let entityName = instance.entityId;
@@ -118,6 +184,16 @@ export async function GET(
       workflowName: workflowDef?.name || '',
       entityName,
       currentStageName: currentStage?.name || '',
+      // 时间统计
+      timeStats: {
+        totalEstimatedDays,
+        totalEstimatedHours: totalEstimatedDays * 8,
+        totalActualHours,
+        totalActualDays: Math.round(totalActualHours / 8 * 10) / 10,
+        estimatedCompletionDate: estimatedCompletionDate.toISOString().split('T')[0],
+        daysRemaining: Math.max(0, Math.ceil((estimatedCompletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
+        isOverdue: Date.now() > estimatedCompletionDate.getTime() && instance.status !== 'completed',
+      },
       stages,
     });
   } catch (error) {
@@ -126,6 +202,32 @@ export async function GET(
       { error: '获取工作流实例详情失败', message: (error as Error).message },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * 计算默认预估天数（基于阶段顺序）
+ */
+function calculateDefaultEstimatedDays(stageOrder: number): number {
+  // 默认每个阶段预估3天
+  return 3;
+}
+
+/**
+ * 格式化持续时间
+ */
+function formatDuration(hours: number): string {
+  if (hours < 1) {
+    return '< 1小时';
+  } else if (hours < 24) {
+    return `${hours}小时`;
+  } else {
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    if (remainingHours === 0) {
+      return `${days}天`;
+    }
+    return `${days}天${remainingHours}小时`;
   }
 }
 

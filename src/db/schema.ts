@@ -613,6 +613,7 @@ export const workflowTaskTemplates = pgTable('workflow_task_templates', {
   priority: taskPriorityEnum('priority').notNull().default('medium'),
   estimatedMinutes: integer('estimated_minutes'), // 预计完成时间（分钟）
   checklist: jsonb('checklist').$type<string[]>(), // 任务清单项
+  dependsOn: jsonb('depends_on').$type<string[]>(), // 依赖的任务模板ID列表
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -665,6 +666,10 @@ export const workflowTaskInstances = pgTable('workflow_task_instances', {
   
   // 状态
   status: workflowStageStatusEnum('status').notNull().default('pending'),
+  blockedByDependencies: boolean('blocked_by_dependencies').notNull().default(false), // 是否被依赖阻塞
+  
+  // 依赖关系
+  dependsOn: jsonb('depends_on').$type<string[]>(), // 依赖的任务实例ID列表
   
   // 清单进度
   checklist: jsonb('checklist').$type<{ text: string; completed: boolean }[]>(),

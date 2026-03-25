@@ -6,10 +6,16 @@ import {
   workflowStageDefinitions,
 } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { 
+  checkTaskPermission, 
+  getTaskActionSummary,
+  type TaskAction 
+} from '@/lib/workflow-permissions';
+import { getCurrentUser } from '@/lib/auth-middleware';
 
 /**
  * GET /api/workflows/tasks/[taskId]
- * 获取任务详情
+ * 获取任务详情（含操作权限）
  */
 export async function GET(
   request: NextRequest,
@@ -29,7 +35,26 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(task);
+    // 获取当前用户权限摘要
+    const user = await getCurrentUser(request);
+    let permissions: Record<TaskAction, boolean> = {
+      view: false,
+      start: false,
+      complete: false,
+      skip: false,
+      reassign: false,
+      edit: false,
+      add_notes: false,
+    };
+
+    if (user) {
+      permissions = await getTaskActionSummary(taskId, user.id);
+    }
+
+    return NextResponse.json({
+      ...task,
+      permissions,
+    });
   } catch (error) {
     console.error('获取任务详情失败:', error);
     return NextResponse.json(
@@ -50,6 +75,15 @@ export async function PUT(
   const { taskId } = await params;
 
   try {
+    // 获取当前用户
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: '未登录' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     
     // 查询任务
@@ -64,8 +98,31 @@ export async function PUT(
       );
     }
 
+    // 根据操作类型检查权限
+    let requiredAction: TaskAction = 'edit';
+    if (body.status === 'in_progress') {
+      requiredAction = 'start';
+    } else if (body.status === 'completed') {
+      requiredAction = 'complete';
+    } else if (body.status === 'skipped') {
+      requiredAction = 'skip';
+    } else if (body.assigneeId !== undefined) {
+      requiredAction = 'reassign';
+    } else if (body.notes !== undefined && Object.keys(body).length === 2) { // only id and notes
+      requiredAction = 'add_notes';
+    }
+
+    // 检查权限
+    const permissionResult = await checkTaskPermission(taskId, user.id, requiredAction);
+    if (!permissionResult.allowed) {
+      return NextResponse.json(
+        { error: permissionResult.reason || '权限不足' },
+        { status: 403 }
+      );
+    }
+
     // 准备更新数据
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
     
@@ -81,13 +138,14 @@ export async function PUT(
     if (body.checklist !== undefined) {
       updateData.checklist = body.checklist;
       // 更新清单完成数
-      const completedCount = body.checklist.filter((item: any) => item.completed).length;
+      const completedCount = body.checklist.filter((item: { completed: boolean }) => item.completed).length;
       updateData.completedChecklist = completedCount;
     }
     
     // 如果状态变为completed，记录完成时间
     if (body.status === 'completed' && task.status !== 'completed') {
       updateData.completedAt = new Date();
+      updateData.status = 'completed';
     }
     
     // 如果状态变为in_progress，记录开始时间
@@ -103,12 +161,23 @@ export async function PUT(
     // 更新工作流实例的进度
     await updateWorkflowProgress(task.instanceId);
 
+    // 触发模块联动（上课记录完成时更新进度）
+    if (body.status === 'completed') {
+      await triggerModuleLinkage(task);
+    }
+
     // 重新查询更新后的任务
     const updatedTask = await db.query.workflowTaskInstances.findFirst({
       where: eq(workflowTaskInstances.id, taskId),
     });
 
-    return NextResponse.json(updatedTask);
+    // 返回更新后的权限摘要
+    const permissions = await getTaskActionSummary(taskId, user.id);
+
+    return NextResponse.json({
+      ...updatedTask,
+      permissions,
+    });
   } catch (error) {
     console.error('更新任务失败:', error);
     return NextResponse.json(
@@ -129,6 +198,15 @@ export async function PATCH(
   const { taskId } = await params;
 
   try {
+    // 获取当前用户
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: '未登录' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { checklistItemId, completed, checklistItemIndex } = body;
     
@@ -144,6 +222,15 @@ export async function PATCH(
       );
     }
 
+    // 检查权限
+    const permissionResult = await checkTaskPermission(taskId, user.id, 'complete');
+    if (!permissionResult.allowed) {
+      return NextResponse.json(
+        { error: permissionResult.reason || '权限不足' },
+        { status: 403 }
+      );
+    }
+
     // 更新清单项
     const checklist = task.checklist as { text: string; completed: boolean }[] || [];
     
@@ -151,17 +238,17 @@ export async function PATCH(
     if (checklistItemIndex !== undefined && checklistItemIndex < checklist.length) {
       checklist[checklistItemIndex].completed = completed;
     } else if (checklistItemId !== undefined) {
-      const item = checklist.find((_: any, index: number) => index === checklistItemId);
+      const item = checklist.find((_: { text: string; completed: boolean }, index: number) => index === checklistItemId);
       if (item) {
         item.completed = completed;
       }
     }
 
     // 计算清单完成进度
-    const completedCount = checklist.filter((item: any) => item.completed).length;
+    const completedCount = checklist.filter((item: { completed: boolean }) => item.completed).length;
     const totalCount = checklist.length;
     
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       checklist,
       completedChecklist: completedCount,
       updatedAt: new Date(),
@@ -181,12 +268,23 @@ export async function PATCH(
     // 更新工作流实例的进度
     await updateWorkflowProgress(task.instanceId);
 
+    // 如果任务完成，触发模块联动
+    if (updateData.status === 'completed') {
+      await triggerModuleLinkage(task);
+    }
+
     // 重新查询更新后的任务
     const updatedTask = await db.query.workflowTaskInstances.findFirst({
       where: eq(workflowTaskInstances.id, taskId),
     });
 
-    return NextResponse.json(updatedTask);
+    // 返回更新后的权限摘要
+    const permissions = await getTaskActionSummary(taskId, user.id);
+
+    return NextResponse.json({
+      ...updatedTask,
+      permissions,
+    });
   } catch (error) {
     console.error('更新任务清单失败:', error);
     return NextResponse.json(
@@ -294,4 +392,51 @@ async function hasStartedAt(instanceId: string): Promise<boolean> {
     where: eq(workflowInstances.id, instanceId),
   });
   return !!instance?.startedAt;
+}
+
+/**
+ * 触发模块联动
+ * 当任务完成时，自动更新相关模块
+ */
+async function triggerModuleLinkage(task: {
+  id: string;
+  instanceId: string;
+  name: string;
+  stageId: string;
+}) {
+  try {
+    // 获取工作流实例信息
+    const instance = await db.query.workflowInstances.findFirst({
+      where: eq(workflowInstances.id, task.instanceId),
+    });
+
+    if (!instance) return;
+
+    // 根据任务名称触发不同的联动
+    switch (task.name) {
+      case '填写上课记录':
+        // 上课记录完成后，更新选课单进度
+        if (instance.entityType === 'selection_form') {
+          console.log(`[Linkage] Updating selection form progress for ${instance.entityId}`);
+          // 这里可以调用选课单服务更新进度
+        }
+        break;
+
+      case '发送签字链接':
+        // 签字链接发送后，通知学生
+        console.log(`[Linkage] Sign link sent notification for ${instance.entityId}`);
+        break;
+
+      case '确认学生签字':
+        // 学生签字完成后，更新相关状态
+        console.log(`[Linkage] Student signature confirmed for ${instance.entityId}`);
+        break;
+
+      default:
+        // 默认不做处理
+        break;
+    }
+  } catch (error) {
+    console.error('模块联动失败:', error);
+  }
 }
