@@ -216,13 +216,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* 侧边栏 */}
-      <motion.aside
-        initial={false}
-        animate={sidebarOpen ? 'open' : 'closed'}
-        variants={sidebarVariants}
+      <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl lg:translate-x-0 lg:shadow-xl",
-          "lg:animate-none"
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out",
+          "lg:translate-x-0 lg:shadow-xl",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex flex-col h-full">
@@ -394,7 +392,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </p>
           </motion.div>
         </div>
-      </motion.aside>
+      </aside>
 
       {/* 主内容区域 */}
       <div className="lg:pl-64">
