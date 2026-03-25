@@ -21,21 +21,40 @@ import {
   Receipt,
   CheckCircle2,
   Zap,
+  History,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { UserProvider, useUser } from '@/hooks/use-permissions';
 import { GlobalSearch, SearchButton } from '@/components/global-search';
 import { QuickActionsPanel, QuickActionButtons } from '@/components/quick-actions';
-import { RoleSwitcher } from '@/components/permission-guard';
+import { RoleSwitcher, Show } from '@/components/permission-guard';
+import type { UserRole } from '@/types/permissions';
 
 /**
  * 系统核心工作流程：
  * 学生/导师 → 课程配置 → 选课指导 → 时间设置 → 自动排课 → 上课记录 → 结课审核 → 课酬统计
  */
 
-// 导航分组配置
-const navigationGroups = [
+// 导航项类型
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  minRole?: UserRole; // 最低角色要求
+  permission?: string; // 权限要求
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+  minRole?: UserRole; // 整个分组的最低角色要求
+}
+
+// 导航分组配置（带权限控制）
+const navigationGroups: NavGroup[] = [
   {
     title: '概览',
     items: [
@@ -60,7 +79,8 @@ const navigationGroups = [
     title: '选课规划',
     items: [
       { name: '选课单管理', href: '/selection-forms', icon: FileText, description: '创建和管理选课单' },
-    ]
+    ],
+    minRole: '规划顾问',
   },
   {
     title: '排课安排',
@@ -80,25 +100,66 @@ const navigationGroups = [
     title: '财务管理',
     items: [
       { name: '课酬统计', href: '/salary', icon: Receipt, description: '导师课酬统计与报表' },
-    ]
+    ],
+    minRole: '规划顾问',
   },
   {
-    title: '系统',
+    title: '系统管理',
     items: [
-      { name: '系统设置', href: '/settings', icon: Settings, description: '系统配置' },
-    ]
+      { name: '操作日志', href: '/logs', icon: History, description: '系统操作记录', minRole: '管理员' },
+      { name: '系统设置', href: '/settings', icon: Settings, description: '系统配置', minRole: '管理员' },
+    ],
+    minRole: '管理员',
   },
 ];
+
+// 角色层级
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  '管理员': 100,
+  '规划顾问': 60,
+  '全职导师': 40,
+  '兼职导师': 20,
+  '学生': 10,
+};
+
+// 检查角色层级
+function isRoleAtLeast(role: UserRole, requiredRole: UserRole): boolean {
+  return (ROLE_HIERARCHY[role] ?? 0) >= (ROLE_HIERARCHY[requiredRole] ?? 0);
+}
+
+// 过滤导航项
+function filterNavItems(items: NavItem[], userRole: UserRole): NavItem[] {
+  return items.filter(item => {
+    if (item.minRole && !isRoleAtLeast(userRole, item.minRole)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+// 过滤导航分组
+function filterNavGroups(groups: NavGroup[], userRole: UserRole): NavGroup[] {
+  return groups
+    .filter(group => !group.minRole || isRoleAtLeast(userRole, group.minRole))
+    .map(group => ({
+      ...group,
+      items: filterNavItems(group.items, userRole),
+    }))
+    .filter(group => group.items.length > 0);
+}
 
 // 主布局组件
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
-    navigationGroups.map(g => g.title) // 默认全部展开
+    navigationGroups.map(g => g.title)
   );
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useUser();
+
+  // 根据用户角色过滤导航
+  const visibleNavGroups = user ? filterNavGroups(navigationGroups, user.role) : [];
 
   const toggleGroup = (title: string) => {
     setExpandedGroups(prev => 
@@ -149,9 +210,29 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
 
+          {/* 用户信息条 */}
+          {user && (
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                    <span className="text-sm font-medium text-orange-600">
+                      {user.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                  </div>
+                </div>
+                <Shield className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </div>
+          )}
+
           {/* 导航菜单 - 分组显示 */}
           <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
-            {navigationGroups.map((group) => (
+            {visibleNavGroups.map((group) => (
               <div key={group.title} className="space-y-1">
                 {/* 分组标题 */}
                 <button
