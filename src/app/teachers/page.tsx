@@ -82,8 +82,9 @@ interface Teacher {
   teacherType?: string;
   createdAt: string;
   // 飞书多维表格对接新字段
-  cooperationStatus?: string;
-  majorDirection?: string;
+  cooperationStatus?: string; // 合作性质
+  employmentStatus?: string; // 就职状态
+  majorDirections?: string[]; // 专业方向（多选）
   wechatId?: string;
   meetingLink?: string;
   idType?: string;

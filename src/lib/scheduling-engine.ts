@@ -88,7 +88,8 @@ export class SchedulingEngine {
         applicationCountry: '美国',
         currentStage: '基础阶段',
         totalHours: 100,
-        usedHours: 0,
+        consumedHours: 0,
+        remainingHours: 100,
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Student,
@@ -205,7 +206,8 @@ export class SchedulingEngine {
             });
 
             await updateStudent(student.id, {
-              usedHours: student.usedHours + 2,
+              consumedHours: student.consumedHours + 2,
+              remainingHours: student.remainingHours - 2,
             });
 
             // 发送通知（如果飞书已启用）

@@ -84,18 +84,20 @@ interface Student {
   applicationCountry: string;
   currentStage: string;
   totalHours: number;
-  usedHours: number;
+  consumedHours: number; // 已消耗课时
+  remainingHours: number; // 剩余课时
   createdAt: string;
   // 飞书多维表格对接新字段
   studentStatus?: string;
   studentCategory?: string;
-  courseCategory?: string;
+  courseCategories?: string[]; // 课程类别（多选）
+  teacherIds?: string[]; // 导师（多选）
   hourlyRate?: number;
   consultantId?: string;
-  currentTeacherId?: string;
+  admissionConsultantId?: string;
 }
 
-type SortField = 'studentId' | 'name' | 'major' | 'currentStage' | 'totalHours' | 'usedHours' | 'createdAt';
+type SortField = 'studentId' | 'name' | 'major' | 'currentStage' | 'totalHours' | 'consumedHours' | 'createdAt';
 type SortOrder = 'asc' | 'desc';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -290,7 +292,7 @@ export default function StudentsPage() {
           comparison = (a[sortField] || '').localeCompare(b[sortField] || '', 'zh-CN');
           break;
         case 'totalHours':
-        case 'usedHours':
+        case 'consumedHours':
           comparison = (a[sortField] || 0) - (b[sortField] || 0);
           break;
         case 'createdAt':
@@ -325,7 +327,7 @@ export default function StudentsPage() {
     // 准备导出数据
     const exportData = filteredAndSortedStudents.map(student => ({
       ...student,
-      remainingHours: student.totalHours - student.usedHours,
+      remainingHours: student.totalHours - student.consumedHours,
       consultantName: '',
       createdAt: new Date(student.createdAt).toLocaleDateString('zh-CN'),
     }));
@@ -670,8 +672,8 @@ export default function StudentsPage() {
                     <TableBody>
                       <AnimatePresence mode="popLayout">
                         {paginatedStudents.map((student, index) => {
-                          const usedPercentage = Math.round((student.usedHours / student.totalHours) * 100);
-                          const isOverHours = student.usedHours > student.totalHours;
+                          const usedPercentage = Math.round((student.consumedHours / student.totalHours) * 100);
+                          const isOverHours = student.consumedHours > student.totalHours;
                           
                           return (
                             <motion.tr
@@ -709,7 +711,7 @@ export default function StudentsPage() {
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2">
                                     <span className={isOverHours ? 'text-red-500 font-medium' : ''}>
-                                      {student.usedHours}
+                                      {student.consumedHours}
                                     </span>
                                     <span className="text-gray-400">/</span>
                                     <span>{student.totalHours}</span>

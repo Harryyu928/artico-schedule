@@ -91,7 +91,8 @@ export async function createStudent(data: CreateStudentRequest) {
       applicationCountry: data.application_country as any,
       currentStage: data.current_stage as any,
       totalHours: data.total_hours,
-      usedHours: 0,
+      consumedHours: 0,
+      remainingHours: data.total_hours,
     }).returning();
 
     // 自动创建学生入学流程工作流实例（异步执行，不阻塞学生创建）
@@ -115,7 +116,8 @@ export async function createStudent(data: CreateStudentRequest) {
       applicationCountry: data.application_country,
       currentStage: data.current_stage,
       totalHours: data.total_hours,
-      usedHours: 0,
+      consumedHours: 0,
+      remainingHours: data.total_hours,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

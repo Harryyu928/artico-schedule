@@ -62,13 +62,13 @@ export class FeishuBitableService {
         '申请国家': student.applicationCountry || '',
         '当前阶段': student.currentStage || '',
         '总课时': student.totalHours || 0,
-        '已用课时': student.usedHours || 0,
-        '剩余课时': (student.totalHours || 0) - (student.usedHours || 0),
+        '已消耗课时': student.consumedHours || 0,
+        '剩余课时': student.remainingHours || 0,
         
         // ========== 飞书多维表格对接新字段 ==========
         '学员状态': student.studentStatus || '在读',
         '学员类别': student.studentCategory || '',
-        '课程类别': student.courseCategory || '',
+        '课程类别': student.courseCategories || [], // 多选
         '课时单价': student.hourlyRate ? student.hourlyRate / 100 : 0, // 分转元
         '合同ID': student.contractId || '',
         
@@ -131,8 +131,9 @@ export class FeishuBitableService {
         '简介': teacher.bio || '',
         
         // ========== 飞书多维表格对接新字段 ==========
-        '合作状态': teacher.cooperationStatus || '合作中',
-        '专业方向': teacher.majorDirection || '',
+        '合作性质': teacher.cooperationStatus || '合作中',
+        '就职状态': teacher.employmentStatus || '在职',
+        '专业方向': teacher.majorDirections || [], // 多选
         '微信号': teacher.wechatId || '',
         '授课会议号': teacher.meetingLink || '',
         '证件类型': teacher.idType || '',

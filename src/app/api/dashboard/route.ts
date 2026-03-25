@@ -148,10 +148,10 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
   }, {} as Record<string, number>);
   
   // 低课时预警（剩余课时<10）
-  const lowHourStudents = allStudents.filter(s => (s.totalHours - s.usedHours) < 10);
+  const lowHourStudents = allStudents.filter(s => (s.totalHours - s.consumedHours) < 10);
   
   // 课时耗尽学生（剩余课时=0）
-  const exhaustedStudents = allStudents.filter(s => s.totalHours <= s.usedHours);
+  const exhaustedStudents = allStudents.filter(s => s.totalHours <= s.consumedHours);
 
   // ========== 3. 导师分析 ==========
   const allTeachers = await db.select().from(teachers);
@@ -247,8 +247,8 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
 
   // ========== 6. 财务概览 ==========
   const totalHours = allStudents.reduce((sum, s) => sum + s.totalHours, 0);
-  const usedHours = allStudents.reduce((sum, s) => sum + s.usedHours, 0);
-  const remainingHours = totalHours - usedHours;
+  const consumedHours = allStudents.reduce((sum, s) => sum + s.consumedHours, 0);
+  const remainingHours = totalHours - consumedHours;
 
   // ========== 7. 预警指标 ==========
   // 待处理选课单
@@ -363,7 +363,7 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
         lowHourStudents: lowHourStudents.slice(0, 5).map(s => ({
           id: s.id,
           name: s.name,
-          remaining: s.totalHours - s.usedHours,
+          remaining: s.totalHours - s.consumedHours,
         })),
         exhaustedStudents: exhaustedStudents.slice(0, 5).map(s => ({
           id: s.id,
@@ -409,9 +409,9 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
       // 财务概览
       financial: {
         totalHours,
-        usedHours,
+        consumedHours,
         remainingHours,
-        utilizationRate: totalHours > 0 ? Math.round((usedHours / totalHours) * 100) : 0,
+        utilizationRate: totalHours > 0 ? Math.round((consumedHours / totalHours) * 100) : 0,
       },
       
       // 预警指标
@@ -485,7 +485,7 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
   }, {} as Record<string, number>);
   
   // 低课时学生
-  const lowHourStudents = myStudents.filter(s => (s.totalHours - s.usedHours) < 10);
+  const lowHourStudents = myStudents.filter(s => (s.totalHours - s.consumedHours) < 10);
   
   // 待处理选课单
   const studentIds = myStudents.map(s => s.id);
@@ -617,7 +617,7 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
         lowHourStudents: lowHourStudents.slice(0, 10).map(s => ({
           id: s.id,
           name: s.name,
-          remaining: s.totalHours - s.usedHours,
+          remaining: s.totalHours - s.consumedHours,
           major: s.major,
           stage: s.currentStage,
         })),
@@ -772,10 +772,10 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
   const studentProgress = myStudentsList.map(s => ({
     id: s.id,
     name: s.name,
-    progress: s.totalHours > 0 ? Math.round((s.usedHours / s.totalHours) * 100) : 0,
-    remaining: s.totalHours - s.usedHours,
+    progress: s.totalHours > 0 ? Math.round((s.consumedHours / s.totalHours) * 100) : 0,
+    remaining: s.totalHours - s.consumedHours,
     totalHours: s.totalHours,
-    usedHours: s.usedHours,
+    consumedHours: s.consumedHours,
     major: s.major,
     stage: s.currentStage,
   }));
@@ -885,7 +885,7 @@ async function getStudentDashboard(user: typeof users.$inferSelect) {
       data: {
         role: '学生',
         user: { id: user.id, name: user.name },
-        stats: { todayCourses: 0, totalHours: 0, usedHours: 0, remainingHours: 0, progressPercentage: 0 },
+        stats: { todayCourses: 0, totalHours: 0, consumedHours: 0, remainingHours: 0, progressPercentage: 0 },
         quickActions: [],
       },
     });
@@ -939,9 +939,9 @@ async function getStudentDashboard(user: typeof users.$inferSelect) {
         todayCourses: todaySchedules.length,
         weekCourses: weekSchedules.length,
         totalHours: student.totalHours,
-        usedHours: student.usedHours,
-        remainingHours: student.totalHours - student.usedHours,
-        progressPercentage: student.totalHours > 0 ? Math.round((student.usedHours / student.totalHours) * 100) : 0,
+        consumedHours: student.consumedHours,
+        remainingHours: student.totalHours - student.consumedHours,
+        progressPercentage: student.totalHours > 0 ? Math.round((student.consumedHours / student.totalHours) * 100) : 0,
         selectionForms: selectionForms.length,
       },
       

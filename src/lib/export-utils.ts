@@ -88,7 +88,7 @@ export const studentExportColumns = [
   { key: 'applicationCountry' as const, label: '申请国家' },
   { key: 'currentStage' as const, label: '当前阶段' },
   { key: 'totalHours' as const, label: '总课时' },
-  { key: 'usedHours' as const, label: '已用课时' },
+  { key: 'consumedHours' as const, label: '已消耗课时' },
   { key: 'remainingHours' as const, label: '剩余课时' },
   { key: 'consultantName' as const, label: '规划顾问' },
   { key: 'createdAt' as const, label: '创建时间' },

@@ -202,6 +202,14 @@ export const teacherCooperationStatusEnum = pgEnum('teacher_cooperation_status',
   '终止合作',
 ] as const);
 
+// 导师就职状态枚举（飞书多维表格要求）
+export const teacherEmploymentStatusEnum = pgEnum('teacher_employment_status', [
+  '在职',
+  '离职',
+  '休假',
+  '试用期',
+] as const);
+
 // 导师专业方向枚举
 export const teacherMajorDirectionEnum = pgEnum('teacher_major_direction', [
   '游戏开发',
@@ -360,8 +368,11 @@ export const students = pgTable('students', {
   major: majorDirectionEnum('major').notNull(),
   applicationCountry: applicationCountryEnum('application_country').notNull(),
   currentStage: studyStageEnum('current_stage').notNull(),
-  totalHours: integer('total_hours').notNull().default(0),
-  usedHours: integer('used_hours').notNull().default(0),
+  
+  // 课时信息（飞书多维表格对接字段）
+  totalHours: integer('total_hours').notNull().default(0), // 总课时
+  consumedHours: integer('consumed_hours').notNull().default(0), // 已消耗课时
+  remainingHours: integer('remaining_hours').notNull().default(0), // 剩余课时
   
   // 联系信息
   email: varchar('email', { length: 200 }),
@@ -381,9 +392,11 @@ export const students = pgTable('students', {
   // 升学顾问（关联顾问表）
   admissionConsultantId: varchar('admission_consultant_id', { length: 36 }),
   
-  // 课程相关信息
-  courseCategory: courseCategoryFeishuEnum('course_category'), // 基础能力提升课/项目一/项目二等
-  currentTeacherId: varchar('current_teacher_id', { length: 36 }), // 负责该项目的导师
+  // 课程类别（多选，飞书多维表格要求）
+  courseCategories: courseCategoryFeishuEnum('course_categories').array(), // 基础能力提升课/项目一/项目二等（多选）
+  
+  // 导师（多选，飞书多维表格要求）
+  teacherIds: varchar('teacher_ids', { length: 36 }).array(), // 负责该学生的导师列表（多选）
   
   // 课时费用
   hourlyRate: integer('hourly_rate'), // 课时单价（分）
@@ -449,11 +462,14 @@ export const teachers = pgTable('teachers', {
   
   // ========== 飞书多维表格对接新增字段 ==========
   
-  // 合作状态
+  // 合作性质
   cooperationStatus: teacherCooperationStatusEnum('cooperation_status').default('合作中'),
   
-  // 专业方向
-  majorDirection: teacherMajorDirectionEnum('major_direction'),
+  // 就职状态（飞书多维表格要求）
+  employmentStatus: teacherEmploymentStatusEnum('employment_status').default('在职'),
+  
+  // 专业方向（多选，飞书多维表格要求）
+  majorDirections: teacherMajorDirectionEnum('major_directions').array(),
   
   // 微信号
   wechatId: varchar('wechat_id', { length: 50 }),
