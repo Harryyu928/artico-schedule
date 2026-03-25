@@ -101,7 +101,7 @@ export function AnimatedCard({ children, className, delay = 0, hover = true, onC
       whileHover={hover ? { scale: 1.01, y: -2 } : undefined}
       whileTap={onClick ? { scale: 0.99 } : undefined}
       onClick={onClick}
-      className={cn(onClick && 'cursor-pointer', className)}
+      className={cn('bg-white border border-slate-200 shadow-sm', onClick && 'cursor-pointer', className)}
     >
       {children}
     </motion.div>
@@ -212,7 +212,7 @@ export function StatCard({ title, value, icon, trend, className, delay = 0 }: St
       transition={{ duration: 0.4, delay, type: 'spring', stiffness: 300 }}
       whileHover={{ y: -4, scale: 1.02 }}
       className={cn(
-        'bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative overflow-hidden group',
+        'bg-white rounded-2xl p-6 shadow-md border border-slate-200 relative overflow-hidden group',
         className
       )}
     >
@@ -221,9 +221,9 @@ export function StatCard({ title, value, icon, trend, className, delay = 0 }: St
       
       <div className="relative flex items-start justify-between">
         <div>
-          <p className="text-sm text-gray-500 mb-1">{title}</p>
+          <p className="text-sm text-slate-500 mb-1">{title}</p>
           <motion.p 
-            className="text-3xl font-bold text-gray-800"
+            className="text-3xl font-bold text-slate-800"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: delay + 0.1, type: 'spring' }}
@@ -270,7 +270,7 @@ export function AnimatedTable({ children, className }: AnimatedTableProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.2 }}
-      className={cn('overflow-hidden rounded-xl border border-gray-200 shadow-lg', className)}
+      className={cn('overflow-hidden rounded-xl border border-slate-200 shadow-md bg-white', className)}
     >
       {children}
     </motion.div>

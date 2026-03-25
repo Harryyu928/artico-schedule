@@ -694,6 +694,106 @@ body {
 
 /* ==================== 数据可视化效果 ==================== */
 
+/* ==================== 对比度增强样式 ==================== */
+
+/* 确保页面背景有足够对比度 */
+.main-content {
+  background: oklch(0.985 0.005 50) !important;
+}
+
+.dark .main-content {
+  background: oklch(0.12 0.01 30) !important;
+}
+
+/* 卡片增强对比度 */
+.card-enhanced {
+  background: white;
+  border: 1px solid oklch(0.88 0.01 50);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.06);
+}
+
+.dark .card-enhanced {
+  background: oklch(0.16 0.01 30);
+  border: 1px solid oklch(0.28 0.01 30);
+}
+
+/* 标签页增强 */
+.tabs-enhanced {
+  background: oklch(0.96 0.01 50);
+  border: 1px solid oklch(0.9 0.01 50);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+
+.dark .tabs-enhanced {
+  background: oklch(0.2 0.01 30);
+  border: 1px solid oklch(0.28 0.01 30);
+}
+
+.tabs-enhanced [role="tab"] {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.tabs-enhanced [role="tab"][data-state="active"] {
+  background: white;
+  box-shadow: 0 2px 4px oklch(0 0 0 / 0.08);
+}
+
+.dark .tabs-enhanced [role="tab"][data-state="active"] {
+  background: oklch(0.25 0.02 30);
+}
+
+/* 表格增强对比度 */
+.table-enhanced {
+  background: white;
+  border: 1px solid oklch(0.9 0.01 50);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.dark .table-enhanced {
+  background: oklch(0.16 0.01 30);
+  border: 1px solid oklch(0.28 0.01 30);
+}
+
+.table-enhanced th {
+  background: oklch(0.97 0.01 50);
+  font-weight: 600;
+}
+
+.dark .table-enhanced th {
+  background: oklch(0.2 0.01 30);
+}
+
+/* 输入框增强 */
+.input-enhanced {
+  border: 1px solid oklch(0.85 0.01 50) !important;
+  background: white !important;
+}
+
+.dark .input-enhanced {
+  border: 1px solid oklch(0.3 0.01 30) !important;
+  background: oklch(0.18 0.01 30) !important;
+}
+
+.input-enhanced:focus {
+  border-color: oklch(0.65 0.22 50) !important;
+  box-shadow: 0 0 0 3px oklch(0.65 0.22 50 / 0.15) !important;
+}
+
+/* 按钮增强 */
+.btn-enhanced {
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-enhanced:hover {
+  transform: translateY(-1px);
+}
+
 /* 数字计数动画 */
 .number-animate {
   display: inline-block;
