@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -40,6 +40,7 @@ import { Progress } from '@/components/ui/progress';
 import AdminDashboard from './admin-dashboard';
 import TeacherDashboard from './teacher-dashboard';
 import ConsultantDashboard from './consultant-dashboard';
+import { useUser, usePermissions } from '@/hooks/use-permissions';
 
 type UserRole = '管理员' | '规划顾问' | '全职导师' | '兼职导师' | '学生';
 
@@ -113,22 +114,40 @@ function getIcon(iconName: string): React.ComponentType<{ className?: string }> 
 
 export default function RoleDashboard() {
   const router = useRouter();
+  const { user, switchRole, isLoading: userLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 使用前端角色作为主要判断依据
+  const currentRole = user?.role as UserRole | undefined;
+
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // 只有当用户角色确定后才获取数据
+    if (currentRole) {
+      fetchDashboardData();
+    } else if (!userLoading) {
+      setLoading(false);
+    }
+  }, [currentRole, userLoading]);
 
   async function fetchDashboardData() {
     try {
+      // 先同步后端 cookie
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', role: currentRole }),
+        credentials: 'include',
+      });
+      
+      // 然后获取仪表盘数据
       const response = await fetch('/api/dashboard', {
         credentials: 'include',
       });
       if (!response.ok) {
         if (response.status === 401) {
-          // 未登录，显示默认仪表盘
+          // 未登录，但前端有角色，继续显示对应仪表盘
           setLoading(false);
           return;
         }
@@ -153,23 +172,26 @@ export default function RoleDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'logout' }),
       });
+      // 清除前端状态
+      switchRole('管理员');
       window.location.reload();
     } catch (err) {
       console.error('登出失败:', err);
     }
   };
 
-  // 如果没有登录或没有数据，显示默认仪表盘
-  if (!loading && !data) {
-    return <DefaultDashboard />;
-  }
-
-  if (loading) {
+  // 如果用户还在加载中
+  if (userLoading || loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
+  }
+
+  // 如果没有前端用户角色，显示默认仪表盘
+  if (!currentRole) {
+    return <DefaultDashboard />;
   }
 
   if (error) {
@@ -186,9 +208,9 @@ export default function RoleDashboard() {
     );
   }
 
-  // 根据角色渲染不同的仪表盘
+  // 根据前端角色渲染不同的仪表盘（不依赖 API 返回的角色）
   const renderDashboard = () => {
-    switch (data?.role) {
+    switch (currentRole) {
       case '管理员':
         // 管理员使用独立的运营仪表盘组件
         return <AdminDashboard />;
@@ -200,34 +222,34 @@ export default function RoleDashboard() {
         // 导师使用独立的仪表盘组件
         return <TeacherDashboard />;
       case '学生':
-        return <StudentDashboardContent data={data} />;
+        return data ? <StudentDashboardContent data={data} /> : <DefaultDashboard />;
       default:
         return <DefaultDashboard />;
     }
   };
 
   // 管理员、规划顾问、导师仪表盘有自己的用户信息栏
-  if (data?.role === '管理员' || data?.role === '规划顾问' || data?.role === '全职导师' || data?.role === '兼职导师') {
+  if (currentRole === '管理员' || currentRole === '规划顾问' || currentRole === '全职导师' || currentRole === '兼职导师') {
     return renderDashboard();
   }
 
   return (
     <div className="space-y-6">
       {/* 用户信息栏 */}
-      {data && (
+      {user && (
         <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-4 text-white">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-xl font-bold">{data.user.name?.charAt(0)}</span>
+              <span className="text-xl font-bold">{user.name?.charAt(0)}</span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold">{data.user.name}</h2>
-              <p className="text-sm text-white/80">{data.role}</p>
+              <h2 className="text-lg font-semibold">{user.name}</h2>
+              <p className="text-sm text-white/80">{currentRole}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-white/20 text-white border-white/30">
-              {data.role}
+              {currentRole}
             </Badge>
             <Button 
               variant="ghost" 
@@ -682,10 +704,15 @@ function StudentDashboardContent({ data }: { data: DashboardData }) {
 // 默认仪表盘（未登录或未知角色）
 function DefaultDashboard() {
   const [switching, setSwitching] = useState<string | null>(null);
+  const { switchRole } = useUser();
 
   const handleRoleSwitch = async (role: UserRole) => {
     setSwitching(role);
     try {
+      // 1. 先更新前端 localStorage
+      switchRole(role);
+      
+      // 2. 再同步后端 cookie
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -694,12 +721,9 @@ function DefaultDashboard() {
       });
       const result = await response.json();
       console.log('登录结果:', result);
-      if (result.success) {
-        window.location.reload();
-      } else {
-        console.error('登录失败:', result.error);
-        setSwitching(null);
-      }
+      
+      // 3. 刷新页面以应用新角色
+      window.location.reload();
     } catch (err) {
       console.error('切换角色失败:', err);
       setSwitching(null);

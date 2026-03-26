@@ -147,6 +147,18 @@ export function AdminDashboard() {
   async function fetchDashboardData() {
     try {
       setLoading(true);
+      
+      // 先同步后端 cookie（确保当前角色正确）
+      const currentRole = localStorage.getItem('user_role');
+      if (currentRole) {
+        await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', role: currentRole }),
+          credentials: 'include',
+        });
+      }
+      
       const response = await fetch('/api/dashboard', {
         credentials: 'include',
       });
