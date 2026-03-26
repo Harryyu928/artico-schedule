@@ -222,12 +222,17 @@ export default function SchedulesPage() {
         try {
           toast({
             title: '自动排课',
-            description: '正在执行自动排课...',
+            description: '正在执行自动排课，请稍候...',
           });
 
           const response = await fetch('/api/schedule/auto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              weeks: 1,
+              hoursPerWeek: 2,
+              priorityRule: 'remaining_hours',
+            }),
           });
 
           if (!response.ok) throw new Error('自动排课失败');
@@ -235,8 +240,9 @@ export default function SchedulesPage() {
           const result = await response.json();
           
           toast({
-            title: '成功',
-            description: `自动排课完成，共安排 ${result.scheduled || 0} 节课程`,
+            title: '自动排课完成',
+            description: `成功安排 ${result.scheduled} 节课程${result.failed > 0 ? `，${result.failed} 节失败` : ''}`,
+            variant: result.failed > 0 ? 'default' : 'default',
           });
 
           fetchSchedules();

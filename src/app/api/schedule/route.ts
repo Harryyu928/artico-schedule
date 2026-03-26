@@ -4,6 +4,7 @@ import { scheduleResults, students, teachers, courses } from '@/db/schema';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { schedulingEngine } from '@/lib/scheduling-engine';
+import { syncScheduleToFeishu, sendScheduleNotification } from '@/lib/schedule-feishu-sync';
 import type { AutoScheduleRequest } from '@/types';
 
 /**
@@ -225,6 +226,16 @@ export async function POST(request: NextRequest) {
         .from(courses)
         .where(eq(courses.id, courseId))
         .limit(1);
+
+      // 异步同步到飞书（不阻塞响应）
+      syncScheduleToFeishu(schedule.id).catch(err => 
+        console.error('[API] 同步到飞书失败:', err)
+      );
+      
+      // 异步发送通知（不阻塞响应）
+      sendScheduleNotification(schedule.id, 'created').catch(err =>
+        console.error('[API] 发送通知失败:', err)
+      );
 
       return NextResponse.json({
         success: true,
