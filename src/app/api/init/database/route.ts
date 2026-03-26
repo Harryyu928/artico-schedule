@@ -18,8 +18,63 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+-- 飞书对接枚举
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('admin', 'consultant', 'full_time_teacher', 'part_time_teacher', 'student');
+    CREATE TYPE student_status AS ENUM ('意向学员', '正式学员', '休学学员', '结课学员');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE student_category AS ENUM ('作品集学员', '技能提升学员', '游学学员', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE course_type_enum AS ENUM ('作品集', '技能提升', '游学', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE teacher_cooperation_type AS ENUM ('全职', '兼职', '合作');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE teacher_specialty AS ENUM ('作品集', '技能提升', '游学', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE id_type AS ENUM ('身份证', '护照', '港澳通行证', '台湾通行证', '其他');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE attendance_enum AS ENUM ('正常到课', '请假缺课', '无故缺课', '迟到', '早退');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE settlement_status_enum AS ENUM ('待结课', '待审核', '已审核', '已支付');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE employment_status AS ENUM ('在职', '离职', '休假');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('学生', '管理员', '规划顾问', '全职导师', '兼职导师');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -85,9 +140,153 @@ EXCEPTION
 END $$;
 `;
 
-// 创建 teachers 表
+// 创建 consultants 表（与 schema.ts 一致）
+const CREATE_CONSULTANTS_TABLE = `
+DROP TABLE IF EXISTS consultants CASCADE;
+CREATE TABLE consultants (
+    id VARCHAR(36) PRIMARY KEY,
+    consultant_id VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    level VARCHAR(20) NOT NULL DEFAULT 'standard',
+    
+    -- 联系信息
+    email VARCHAR(200),
+    phone VARCHAR(20),
+    wechat VARCHAR(50),
+    
+    -- 飞书集成
+    feishu_user_id VARCHAR(100) UNIQUE,
+    feishu_record_id VARCHAR(100),
+    
+    -- 用户账号关联
+    user_id VARCHAR(36),
+    
+    -- 统计数据
+    total_students INTEGER NOT NULL DEFAULT 0,
+    active_students INTEGER NOT NULL DEFAULT 0,
+    
+    -- 状态
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    
+    -- 备注
+    notes TEXT,
+    
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 users 表（与 schema.ts 一致）
+const CREATE_USERS_TABLE = `
+DROP TABLE IF EXISTS users CASCADE;
+CREATE TABLE users (
+    id VARCHAR(36) PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
+    role user_role NOT NULL,
+    
+    -- 关联信息
+    teacher_id VARCHAR(36),
+    student_id VARCHAR(36),
+    consultant_id VARCHAR(36),
+    
+    -- 基本信息
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(200),
+    phone VARCHAR(20),
+    avatar VARCHAR(500),
+    
+    -- 飞书集成信息
+    feishu_open_id VARCHAR(100) UNIQUE,
+    feishu_union_id VARCHAR(100) UNIQUE,
+    feishu_access_token VARCHAR(500),
+    feishu_refresh_token VARCHAR(500),
+    feishu_token_expires_at TIMESTAMP,
+    
+    -- 状态
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    last_login_at TIMESTAMP,
+    last_login_method VARCHAR(20),
+    
+    -- 通知偏好
+    notification_channels JSONB DEFAULT '{"feishu": true, "wechat": true, "email": false, "sms": false}',
+    
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 sessions 表
+const CREATE_SESSIONS_TABLE = `
+CREATE TABLE IF NOT EXISTS sessions (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 创建 students 表（与 schema.ts 一致）
+const CREATE_STUDENTS_TABLE = `
+DROP TABLE IF EXISTS students CASCADE;
+CREATE TABLE students (
+    id VARCHAR(36) PRIMARY KEY,
+    student_id VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    major VARCHAR(50) NOT NULL,
+    application_country VARCHAR(50) NOT NULL,
+    current_stage VARCHAR(50) NOT NULL,
+    
+    -- 课时信息
+    total_hours INTEGER NOT NULL DEFAULT 0,
+    consumed_hours INTEGER NOT NULL DEFAULT 0,
+    remaining_hours INTEGER NOT NULL DEFAULT 0,
+    
+    -- 联系信息
+    email VARCHAR(200),
+    phone VARCHAR(20),
+    wechat VARCHAR(50),
+    
+    -- 负责人
+    consultant_id VARCHAR(36),
+    primary_teacher_id VARCHAR(36),
+    
+    -- 飞书多维表格对接字段
+    student_status VARCHAR(20) DEFAULT '在读',
+    student_category VARCHAR(50),
+    admission_consultant_id VARCHAR(36),
+    course_categories VARCHAR(50)[],
+    teacher_ids VARCHAR(36)[],
+    hourly_rate INTEGER,
+    contract_id VARCHAR(36),
+    feishu_record_id VARCHAR(100),
+    
+    -- 通知偏好
+    notification_channels JSONB DEFAULT '{"wechat": true, "email": false, "sms": false}',
+    
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+// 插入测试用户数据
+const INSERT_TEST_USERS = `
+INSERT INTO users (id, username, name, role, email, is_active)
+VALUES 
+    ('user-admin-001', 'admin', '系统管理员', '管理员', 'admin@artico.com', true),
+    ('user-consultant-001', 'consultant1', '张顾问', '规划顾问', 'consultant1@artico.com', true),
+    ('user-teacher-001', 'teacher1', '王老师', '全职导师', 'wang@artico.com', true),
+    ('user-teacher-002', 'teacher2', '李老师', '全职导师', 'li@artico.com', true),
+    ('user-teacher-003', 'teacher3', '张老师', '兼职导师', 'zhang@artico.com', true),
+    ('user-student-001', 'student1', '测试学生', '学生', 'student1@artico.com', true)
+ON CONFLICT (id) DO NOTHING;
+`;
+
+// 创建 teachers 表（与 schema.ts 一致）
 const CREATE_TEACHERS_TABLE = `
-CREATE TABLE IF NOT EXISTS teachers (
+DROP TABLE IF EXISTS teachers CASCADE;
+CREATE TABLE teachers (
     id VARCHAR(36) PRIMARY KEY,
     teacher_id VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -98,8 +297,33 @@ CREATE TABLE IF NOT EXISTS teachers (
     email VARCHAR(200),
     phone VARCHAR(20),
     bio TEXT,
+    
+    -- 飞书集成
     feishu_user_id VARCHAR(100) UNIQUE,
+    
+    -- 飞书多维表格对接新增字段
+    cooperation_status VARCHAR(20) DEFAULT '合作中',
+    employment_status VARCHAR(20) DEFAULT '在职',
+    major_directions VARCHAR(50)[],
+    wechat_id VARCHAR(50),
+    meeting_link VARCHAR(500),
+    id_type VARCHAR(20),
+    id_number VARCHAR(50),
+    bank_name VARCHAR(100),
+    bank_account VARCHAR(50),
+    contract_expiry DATE,
+    
+    -- 统计数据
+    project_course_count INTEGER DEFAULT 0,
+    settled_count INTEGER DEFAULT 0,
+    settlement_rate INTEGER DEFAULT 0,
+    
+    -- 飞书多维表格同步
+    feishu_record_id VARCHAR(100),
+    
+    -- 通知偏好
     notification_channels JSONB DEFAULT '{"feishu": true, "wechat": false, "email": false, "sms": false}',
+    
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -333,6 +557,38 @@ export async function GET() {
       results.push('⚠️ teachers 表已存在或创建失败: ' + (e as Error).message);
     }
     
+    // 创建 consultants 表
+    try {
+      await db.execute(sql.raw(CREATE_CONSULTANTS_TABLE));
+      results.push('✅ consultants 表创建成功');
+    } catch (e) {
+      results.push('⚠️ consultants 表已存在或创建失败: ' + (e as Error).message);
+    }
+    
+    // 创建 users 表
+    try {
+      await db.execute(sql.raw(CREATE_USERS_TABLE));
+      results.push('✅ users 表创建成功');
+    } catch (e) {
+      results.push('⚠️ users 表已存在或创建失败: ' + (e as Error).message);
+    }
+    
+    // 创建 sessions 表
+    try {
+      await db.execute(sql.raw(CREATE_SESSIONS_TABLE));
+      results.push('✅ sessions 表创建成功');
+    } catch (e) {
+      results.push('⚠️ sessions 表已存在或创建失败: ' + (e as Error).message);
+    }
+    
+    // 创建 students 表
+    try {
+      await db.execute(sql.raw(CREATE_STUDENTS_TABLE));
+      results.push('✅ students 表创建成功');
+    } catch (e) {
+      results.push('⚠️ students 表已存在或创建失败: ' + (e as Error).message);
+    }
+    
     // 创建 time_availabilities 表
     try {
       await db.execute(sql.raw(CREATE_TIME_AVAILABILITIES_TABLE));
@@ -387,6 +643,14 @@ export async function GET() {
       results.push('✅ 测试导师数据插入成功');
     } catch (e) {
       results.push('⚠️ 测试导师数据已存在或插入失败');
+    }
+    
+    // 插入测试用户数据
+    try {
+      await db.execute(sql.raw(INSERT_TEST_USERS));
+      results.push('✅ 测试用户数据插入成功');
+    } catch (e) {
+      results.push('⚠️ 测试用户数据已存在或插入失败: ' + (e as Error).message);
     }
     
     return NextResponse.json({
