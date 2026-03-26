@@ -157,6 +157,8 @@ export async function syncStudentsFromFeishu(): Promise<{ total: number; synced:
         totalHours: Number(fields['总课时']) || 0,
         consumedHours: Number(fields['已消耗课时']) || 0,
         remainingHours: Number(fields['剩余课时']) || 0,
+        studentStatus: mapStudentStatus(fields['学员状态'] as string) as any,
+        studentCategory: (fields['学员类别'] as string) || null,
         feishuRecordId: record.record_id,
         updatedAt: new Date(),
       };
@@ -522,6 +524,14 @@ function mapClassStatus(status: string): string {
 
 function mapSettlementStatus(status: string): '已结' | '未结' {
   return status?.includes('已结') ? '已结' : '未结';
+}
+
+function mapStudentStatus(status: string): '在读' | '停课' | '毕业' | '退学' {
+  if (!status) return '在读';
+  if (status.includes('停课')) return '停课';
+  if (status.includes('毕业')) return '毕业';
+  if (status.includes('退学')) return '退学';
+  return '在读';
 }
 
 function mapScheduleStatus(status: string): '待确认' | '已确认' | '已完成' | '取消' {
