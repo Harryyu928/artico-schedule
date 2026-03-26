@@ -1,62 +1,117 @@
 /**
- * 飞书数据同步 API
+ * 飞书同步任务
  * 
- * POST /api/feishu/sync
- * 同步数据到飞书多维表格
+ * 功能：
+ * 1. 定时从飞书拉取最新数据
+ * 2. 提供手动同步接口
+ * 3. 记录同步状态
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isFeishuEnabled, feishuBitableService } from '@/lib/feishu';
+import { syncAllFromFeishu, syncTeachersFromFeishu, syncStudentsFromFeishu, syncClassRecordsFromFeishu } from '@/lib/feishu-sync-service';
+
+// 同步状态存储（内存缓存，生产环境应使用Redis）
+let syncStatus = {
+  lastSyncTime: null as Date | null,
+  isSyncing: false,
+  lastResult: null as any,
+  nextSyncTime: null as Date | null,
+};
+
+// 同步间隔（毫秒）
+const SYNC_INTERVAL = 60 * 60 * 1000; // 1小时
 
 /**
  * POST /api/feishu/sync
- * 同步数据到飞书
+ * 
+ * 执行同步操作
+ * - type: 'all' | 'teachers' | 'students' | 'classRecords'
+ * - force: 是否强制同步（忽略同步中状态）
  */
 export async function POST(request: NextRequest) {
-  if (!isFeishuEnabled()) {
-    return NextResponse.json({ 
-      success: false, 
-      error: '飞书集成未启用' 
-    }, { status: 400 });
-  }
-
   try {
-    const body = await request.json();
-    const { type } = body as { type: 'students' | 'teachers' | 'all' };
+    const body = await request.json().catch(() => ({}));
+    const type = body.type || 'all';
+    const force = body.force || false;
 
-    let success = 0;
-    let failed = 0;
-
-    if (type === 'students') {
-      const result = await feishuBitableService.syncAllStudents();
-      success = result.success;
-      failed = result.failed;
-    } else if (type === 'teachers') {
-      const result = await feishuBitableService.syncAllTeachers();
-      success = result.success;
-      failed = result.failed;
-    } else if (type === 'all') {
-      const studentResult = await feishuBitableService.syncAllStudents();
-      const teacherResult = await feishuBitableService.syncAllTeachers();
-      success = studentResult.success + teacherResult.success;
-      failed = studentResult.failed + teacherResult.failed;
-    } else {
-      return NextResponse.json({ 
-        success: false, 
-        error: '未知的同步类型' 
-      }, { status: 400 });
+    // 检查是否正在同步
+    if (syncStatus.isSyncing && !force) {
+      return NextResponse.json({
+        success: false,
+        message: '同步进行中，请稍后再试',
+        status: syncStatus,
+      }, { status: 429 });
     }
+
+    syncStatus.isSyncing = true;
+    console.log(`[Sync] 开始同步，类型: ${type}`);
+
+    let result;
+    const startTime = Date.now();
+
+    switch (type) {
+      case 'teachers':
+        result = { teachers: await syncTeachersFromFeishu() };
+        break;
+      case 'students':
+        result = { students: await syncStudentsFromFeishu() };
+        break;
+      case 'classRecords':
+        result = { classRecords: await syncClassRecordsFromFeishu() };
+        break;
+      case 'all':
+      default:
+        result = await syncAllFromFeishu();
+        break;
+    }
+
+    const duration = Date.now() - startTime;
+
+    // 更新状态
+    syncStatus.lastSyncTime = new Date();
+    syncStatus.isSyncing = false;
+    syncStatus.lastResult = {
+      ...result,
+      duration,
+    };
+    syncStatus.nextSyncTime = new Date(Date.now() + SYNC_INTERVAL);
 
     return NextResponse.json({
       success: true,
-      synced: success,
-      failed,
+      message: '同步完成',
+      duration,
+      result,
+      status: syncStatus,
     });
+
   } catch (error) {
-    console.error('[Feishu] 同步失败:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: (error as Error).message 
-    }, { status: 500 });
+    syncStatus.isSyncing = false;
+    console.error('[Sync] 同步失败:', error);
+    
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: '同步失败', 
+        message: (error as Error).message,
+        status: syncStatus,
+      },
+      { status: 500 }
+    );
   }
+}
+
+/**
+ * GET /api/feishu/sync
+ * 
+ * 获取同步状态
+ */
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    status: {
+      ...syncStatus,
+      syncInterval: SYNC_INTERVAL,
+      syncIntervalMinutes: SYNC_INTERVAL / 60000,
+    },
+  });
 }

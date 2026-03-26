@@ -35,6 +35,7 @@ import { UserProvider, useUser } from '@/hooks/use-permissions';
 import { GlobalSearch, SearchButton } from '@/components/global-search';
 import { QuickActionsPanel, QuickActionButtons } from '@/components/quick-actions';
 import { RoleSwitcher, Show } from '@/components/permission-guard';
+import { SyncStatusIndicator } from '@/components/sync-status-indicator';
 import type { UserRole } from '@/types/permissions';
 
 /**
@@ -305,6 +306,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               </div>
             </motion.div>
           )}
+
+          {/* 飞书同步状态 */}
+          <div className="px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/60">
+            <SyncStatusIndicator />
+          </div>
 
           {/* 导航菜单 - 分组显示 */}
           <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
