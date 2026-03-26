@@ -224,46 +224,127 @@ async function syncClassRecords(token: string) {
   // 获取学生和导师映射
   const allStudents = await db.select().from(students);
   const allTeachers = await db.select().from(teachers);
-  const studentMap = new Map(allStudents.map(s => [s.name, s]));
-  const teacherMap = new Map(allTeachers.map(t => [t.name, t]));
+  const allCourses = await db.select().from(courses);
+  
+  // 创建默认学生（如果不存在）
+  const defaultStudentId = '00000000-0000-0000-0000-000000000000';
+  if (!allStudents.find(s => s.id === defaultStudentId)) {
+    await db.insert(students).values({
+      id: defaultStudentId,
+      name: '未知学生',
+      studentId: 'UNKNOWN',
+      major: '其他',
+      applicationCountry: '其他',
+      currentStage: '基础阶段',
+      totalHours: 0,
+      consumedHours: 0,
+      remainingHours: 0,
+      studentStatus: '在读',
+      createdAt: new Date(),
+    }).onConflictDoNothing();
+    console.log('   ✅ 创建默认学生记录');
+  }
+  
+  // 创建默认导师（如果不存在）
+  const defaultTeacherId = '00000000-0000-0000-0000-000000000001';
+  if (!allTeachers.find(t => t.id === defaultTeacherId)) {
+    await db.insert(teachers).values({
+      id: defaultTeacherId,
+      name: '未知导师',
+      teacherId: 'UNKNOWN',
+      teacherType: '兼职',
+      cooperationStatus: '合作中',
+      employmentStatus: '在职',
+      majorDirections: [],
+      maxWeeklyHours: 20,
+      currentHours: 0,
+      teachableCourses: [],
+      createdAt: new Date(),
+    }).onConflictDoNothing();
+    console.log('   ✅ 创建默认导师记录');
+  }
+  
+  // 创建默认课程（如果不存在）
+  const defaultCourseId = '00000000-0000-0000-0000-000000000000';
+  if (!allCourses.find(c => c.id === defaultCourseId)) {
+    await db.insert(courses).values({
+      id: defaultCourseId,
+      courseId: 'UNKNOWN',
+      name: '未知课程',
+      type: '基础课',
+      category: 'F-GD',
+      duration: '1个月',
+      description: '系统默认课程',
+      createdAt: new Date(),
+    }).onConflictDoNothing();
+    console.log('   ✅ 创建默认课程记录');
+  }
+  
+  // 重新获取映射
+  const updatedStudents = await db.select().from(students);
+  const updatedTeachers = await db.select().from(teachers);
+  const studentMap = new Map(updatedStudents.map(s => [s.name, s]));
+  const teacherMap = new Map(updatedTeachers.map(t => [t.name, t]));
+
+  // 获取已存在的飞书记录ID
+  const existingRecords = await db.select({ feishuRecordId: classRecords.feishuRecordId }).from(classRecords);
+  const existingFeishuIds = new Set(existingRecords.map(r => r.feishuRecordId));
 
   let synced = 0, skipped = 0, failed = 0;
   const batchSize = 100;
-  const batches = Math.ceil(records.length / batchSize);
 
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
     
     for (const record of batch) {
       try {
+        // 使用飞书记录ID判断是否已存在
+        if (existingFeishuIds.has(record.record_id)) {
+          skipped++;
+          continue;
+        }
+
         const fields = record.fields;
-        const recordNo = fields['记录编号'] as string;
+        let recordNo = fields['记录编号'] as string;
         
-        // 检查是否已存在
+        // 如果 recordId 已存在，生成新的唯一编号
         if (recordNo) {
           const existing = await db.select().from(classRecords)
             .where(eq(classRecords.recordId, recordNo))
             .limit(1);
-          
           if (existing.length > 0) {
-            skipped++;
-            continue;
+            // 生成新的唯一编号
+            recordNo = `${recordNo}-D${Date.now().toString(36)}`;
           }
+        } else {
+          recordNo = `R${Date.now()}${Math.floor(Math.random() * 1000)}`;
         }
-
+        
         const studentName = fields['学生'] as string;
         const teacherName = fields['导师'] as string;
         const student = studentMap.get(studentName);
         const teacher = teacherMap.get(teacherName);
 
-        // 解析日期
+        // 解析日期（添加错误处理）
         let classDateStr = new Date().toISOString().split('T')[0];
         const dateValue = fields['上课日期'];
         if (dateValue) {
-          if (typeof dateValue === 'number') {
-            classDateStr = new Date(dateValue * 1000).toISOString().split('T')[0];
-          } else if (typeof dateValue === 'string') {
-            classDateStr = dateValue;
+          try {
+            if (typeof dateValue === 'number') {
+              // 飞书时间戳是毫秒
+              const date = new Date(dateValue);
+              if (!isNaN(date.getTime())) {
+                classDateStr = date.toISOString().split('T')[0];
+              }
+            } else if (typeof dateValue === 'string') {
+              // 尝试解析字符串日期
+              const date = new Date(dateValue);
+              if (!isNaN(date.getTime())) {
+                classDateStr = date.toISOString().split('T')[0];
+              }
+            }
+          } catch (e) {
+            // 日期解析失败，使用默认日期
           }
         }
 
@@ -299,9 +380,9 @@ async function syncClassRecords(token: string) {
 
         await db.insert(classRecords).values({
           id: uuidv4(),
-          recordId: recordNo || `R${Date.now()}${Math.floor(Math.random() * 1000)}`,
+          recordId: recordNo,
           studentId: student?.id || '00000000-0000-0000-0000-000000000000',
-          teacherId: teacher?.id || '00000000-0000-0000-0000-000000000000',
+          teacherId: teacher?.id || '00000000-0000-0000-0000-000000000001',
           courseId: '00000000-0000-0000-0000-000000000000',
           courseCategory: fields['课程类别'] as string || null,
           courseContentDetail: fields['课程内容详情'] as string || null,
@@ -327,8 +408,12 @@ async function syncClassRecords(token: string) {
         
         synced++;
       } catch (error: any) {
-        if (!error.message?.includes('duplicate')) {
-          failed++;
+        failed++;
+        if (failed <= 3) {
+          console.error(`   同步失败 #${failed}:`);
+          if (error.cause) {
+            console.error(`   原因:`, error.cause.message?.substring(0, 300));
+          }
         }
       }
     }
