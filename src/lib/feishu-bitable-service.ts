@@ -56,26 +56,22 @@ export interface BitableField {
   property?: Record<string, unknown>;
 }
 
+// 访问令牌缓存
+interface TokenCache {
+  accessToken: string;
+  expiresAt: number;
+}
+
 /**
  * 飞书多维表格服务类
  */
 export class FeishuBitableService {
-  private client: lark.Client;
   private config: FeishuConfig;
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
+  private tokenCache: TokenCache | null = null;
 
   constructor(config?: Partial<FeishuConfig>) {
     const envConfig = getFeishuConfig();
     this.config = { ...envConfig, ...config } as FeishuConfig;
-    
-    // 初始化飞书客户端
-    this.client = new lark.Client({
-      appId: this.config.appId,
-      appSecret: this.config.appSecret,
-      appType: lark.AppType.SelfBuild,
-      domain: lark.Domain.Feishu,
-    });
   }
 
   /**
@@ -90,37 +86,85 @@ export class FeishuBitableService {
   }
 
   /**
-   * 获取访问令牌（内部使用，client会自动处理）
+   * 获取访问令牌
    */
-  private async ensureAccessToken(): Promise<void> {
-    // lark SDK 会自动处理 token，这里仅做检查
-    if (!this.isConfigured) {
-      throw new Error('飞书配置不完整，请检查 FEISHU_APP_ID 和 FEISHU_APP_SECRET');
+  private async getAccessToken(): Promise<string> {
+    // 检查缓存是否有效
+    if (this.tokenCache && this.tokenCache.expiresAt > Date.now()) {
+      return this.tokenCache.accessToken;
     }
+
+    // 请求新的访问令牌
+    const response = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        app_id: this.config.appId,
+        app_secret: this.config.appSecret,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (data.code !== 0) {
+      throw new Error(`获取访问令牌失败: ${data.msg}`);
+    }
+
+    // 缓存令牌（提前5分钟过期）
+    this.tokenCache = {
+      accessToken: data.tenant_access_token,
+      expiresAt: Date.now() + (data.expire - 300) * 1000,
+    };
+
+    return data.tenant_access_token;
   }
 
   /**
-   * 测试连接
+   * 发送API请求
+   */
+  private async request(
+    method: string,
+    path: string,
+    data?: unknown
+  ): Promise<any> {
+    const accessToken = await this.getAccessToken();
+    
+    const options: RequestInit = {
+      method,
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    };
+
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(`https://open.feishu.cn${path}`, options);
+    return response.json();
+  }
+
+  /**
+   * 测试连接 - 获取多维表格信息
    */
   async testConnection(): Promise<{ success: boolean; message: string; tables?: string[] }> {
     try {
-      await this.ensureAccessToken();
+      const result = await this.request(
+        'GET',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables`
+      );
       
-      // 获取多维表格元数据
-      const response = await (this.client as any).bitable.appTable.listWithPage({
-        path: {
-          app_token: this.config.appToken,
-        },
-      });
-
-      if (response.code !== 0) {
+      if (result.code !== 0) {
         return {
           success: false,
-          message: `获取多维表格失败: ${response.msg}`,
+          message: `获取多维表格失败: ${result.msg}`,
         };
       }
 
-      const tables = (response.data?.items || []).map((t: any) => t.name || '') || [];
+      const tables = (result.data?.items || []).map((t: any) => t.name || '') || [];
       
       return {
         success: true,
@@ -140,19 +184,17 @@ export class FeishuBitableService {
    */
   async getTableFields(tableId: string): Promise<BitableField[]> {
     try {
-      const response = await (this.client as any).bitable.appTableField.listWithPage({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-        },
-      });
-
-      if (response.code !== 0) {
-        console.error('[Feishu] 获取字段失败:', response.msg);
+      const result = await this.request(
+        'GET',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/fields`
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 获取字段失败:', result.msg);
         return [];
       }
 
-      return ((response.data?.items || []) as any[]).map((item: any) => ({
+      return (result.data?.items || []).map((item: any) => ({
         field_id: item.field_id || '',
         field_name: item.field_name || '',
         type: item.type || 0,
@@ -179,35 +221,33 @@ export class FeishuBitableService {
     }
   ): Promise<{ records: BitableRecord[]; hasMore: boolean; pageToken?: string }> {
     try {
-      const response = await (this.client as any).bitable.appTableRecord.listWithPage({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-        },
-        params: {
-          view_id: options?.viewId,
-          field_names: options?.fieldNames ? JSON.stringify(options.fieldNames) : undefined,
-          filter: options?.filter,
-          sort: options?.sort ? JSON.stringify(options.sort) : undefined,
-          page_token: options?.pageToken,
-          page_size: options?.pageSize || 100,
-        },
-      });
+      const params = new URLSearchParams();
+      if (options?.viewId) params.append('view_id', options.viewId);
+      if (options?.fieldNames) params.append('field_names', JSON.stringify(options.fieldNames));
+      if (options?.filter) params.append('filter', options.filter);
+      if (options?.sort) params.append('sort', JSON.stringify(options.sort));
+      if (options?.pageToken) params.append('page_token', options.pageToken);
+      params.append('page_size', String(options?.pageSize || 100));
 
-      if (response.code !== 0) {
-        console.error('[Feishu] 查询记录失败:', response.msg);
+      const result = await this.request(
+        'GET',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/records?${params.toString()}`
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 查询记录失败:', result.msg);
         return { records: [], hasMore: false };
       }
 
-      const records = ((response.data?.items || []) as any[]).map((item: any) => ({
+      const records = (result.data?.items || []).map((item: any) => ({
         record_id: item.record_id || '',
         fields: (item.fields || {}) as Record<string, unknown>,
       }));
 
       return {
         records,
-        hasMore: response.data?.has_more || false,
-        pageToken: response.data?.page_token,
+        hasMore: result.data?.has_more || false,
+        pageToken: result.data?.page_token,
       };
     } catch (error) {
       console.error('[Feishu] 查询记录异常:', error);
@@ -220,24 +260,20 @@ export class FeishuBitableService {
    */
   async createRecord(tableId: string, fields: Record<string, unknown>): Promise<BitableRecord | null> {
     try {
-      const response = await this.client.bitable.appTableRecord.create({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-        },
-        data: {
-          fields: fields as any,
-        },
-      } as any);
-
-      if (response.code !== 0) {
-        console.error('[Feishu] 创建记录失败:', response.msg);
+      const result = await this.request(
+        'POST',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/records`,
+        { fields }
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 创建记录失败:', result.msg);
         return null;
       }
 
       return {
-        record_id: (response.data as any)?.record?.record_id || '',
-        fields: ((response.data as any)?.record?.fields || {}) as Record<string, unknown>,
+        record_id: result.data?.record?.record_id || '',
+        fields: (result.data?.record?.fields || {}) as Record<string, unknown>,
       };
     } catch (error) {
       console.error('[Feishu] 创建记录异常:', error);
@@ -253,22 +289,18 @@ export class FeishuBitableService {
     recordsList: Array<Record<string, unknown>>
   ): Promise<BitableRecord[]> {
     try {
-      const response = await this.client.bitable.appTableRecord.batchCreate({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-        },
-        data: {
-          records: recordsList.map(fields => ({ fields: fields as any })),
-        },
-      } as any);
-
-      if (response.code !== 0) {
-        console.error('[Feishu] 批量创建记录失败:', response.msg);
+      const result = await this.request(
+        'POST',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/records/batch_create`,
+        { records: recordsList.map(fields => ({ fields })) }
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 批量创建记录失败:', result.msg);
         return [];
       }
 
-      return ((response.data as any)?.records || []).map((item: any) => ({
+      return (result.data?.records || []).map((item: any) => ({
         record_id: item.record_id || '',
         fields: (item.fields || {}) as Record<string, unknown>,
       }));
@@ -287,25 +319,20 @@ export class FeishuBitableService {
     fields: Record<string, unknown>
   ): Promise<BitableRecord | null> {
     try {
-      const response = await this.client.bitable.appTableRecord.update({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-          record_id: recordId,
-        },
-        data: {
-          fields: fields as any,
-        },
-      } as any);
-
-      if (response.code !== 0) {
-        console.error('[Feishu] 更新记录失败:', response.msg);
+      const result = await this.request(
+        'PUT',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/records/${recordId}`,
+        { fields }
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 更新记录失败:', result.msg);
         return null;
       }
 
       return {
-        record_id: (response.data as any)?.record?.record_id || '',
-        fields: ((response.data as any)?.record?.fields || {}) as Record<string, unknown>,
+        record_id: result.data?.record?.record_id || '',
+        fields: (result.data?.record?.fields || {}) as Record<string, unknown>,
       };
     } catch (error) {
       console.error('[Feishu] 更新记录异常:', error);
@@ -318,16 +345,13 @@ export class FeishuBitableService {
    */
   async deleteRecord(tableId: string, recordId: string): Promise<boolean> {
     try {
-      const response = await this.client.bitable.appTableRecord.delete({
-        path: {
-          app_token: this.config.appToken,
-          table_id: tableId,
-          record_id: recordId,
-        },
-      });
-
-      if (response.code !== 0) {
-        console.error('[Feishu] 删除记录失败:', response.msg);
+      const result = await this.request(
+        'DELETE',
+        `/open-apis/bitable/v1/apps/${this.config.appToken}/tables/${tableId}/records/${recordId}`
+      );
+      
+      if (result.code !== 0) {
+        console.error('[Feishu] 删除记录失败:', result.msg);
         return false;
       }
 
