@@ -16,9 +16,11 @@ interface FeishuConfig {
     consultants: string;
     teachers: string;
     students: string;
+    courses: string;
     selectionForms: string;
     classRecords: string;
     contracts: string;
+    applicationSchools: string;
   };
 }
 
@@ -32,9 +34,11 @@ function getFeishuConfig(): FeishuConfig {
       consultants: process.env.FEISHU_TABLE_CONSULTANTS || '',
       teachers: process.env.FEISHU_TABLE_TEACHERS || '',
       students: process.env.FEISHU_TABLE_STUDENTS || '',
+      courses: process.env.FEISHU_TABLE_COURSES || '',
       selectionForms: process.env.FEISHU_TABLE_SELECTION_FORMS || '',
       classRecords: process.env.FEISHU_TABLE_CLASS_RECORDS || '',
       contracts: process.env.FEISHU_TABLE_CONTRACTS || '',
+      applicationSchools: process.env.FEISHU_TABLE_APPLICATION_SCHOOLS || '',
     },
   };
 }
@@ -429,4 +433,28 @@ export async function syncContractToFeishu(
     return null;
   }
   return service.createRecord(service.tableIds.contracts, contractData);
+}
+
+// 便捷方法：同步课程
+export async function syncCourseToFeishu(
+  courseData: Record<string, unknown>
+): Promise<BitableRecord | null> {
+  const service = getBitableService();
+  if (!service.isConfigured) {
+    console.log('[Feishu] 未配置，跳过课程同步');
+    return null;
+  }
+  return service.createRecord(service.tableIds.courses, courseData);
+}
+
+// 便捷方法：同步申请院校
+export async function syncApplicationSchoolToFeishu(
+  applicationData: Record<string, unknown>
+): Promise<BitableRecord | null> {
+  const service = getBitableService();
+  if (!service.isConfigured) {
+    console.log('[Feishu] 未配置，跳过申请院校同步');
+    return null;
+  }
+  return service.createRecord(service.tableIds.applicationSchools, applicationData);
 }
