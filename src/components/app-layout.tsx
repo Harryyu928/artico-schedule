@@ -453,16 +453,18 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               <SearchButton onClick={() => setSearchOpen(true)} />
               
               {/* 快捷操作面板 */}
-              <QuickActionsPanel
-                trigger={
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button variant="outline" size="sm" className="gap-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50">
-                      <Zap className="w-4 h-4 text-orange-500" />
-                      <span className="hidden sm:inline">快捷操作</span>
-                    </Button>
-                  </motion.div>
-                }
-              />
+              <div suppressHydrationWarning>
+                <QuickActionsPanel
+                  trigger={
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button variant="outline" size="sm" className="gap-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50">
+                        <Zap className="w-4 h-4 text-orange-500" />
+                        <span className="hidden sm:inline">快捷操作</span>
+                      </Button>
+                    </motion.div>
+                  }
+                />
+              </div>
 
               {/* 角色切换器（演示用） */}
               <div className="hidden md:block">
