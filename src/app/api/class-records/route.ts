@@ -25,9 +25,11 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '50', 10);
     
-    // 用户角色过滤参数
+    // 用户角色过滤参数（使用关联ID进行精确匹配）
     const userRole = searchParams.get('userRole');
-    const userName = searchParams.get('userName');
+    const teacherId = searchParams.get('teacherId');      // 导师关联ID
+    const studentId = searchParams.get('studentId');      // 学生关联ID
+    const consultantId = searchParams.get('consultantId'); // 顾问关联ID
     
     // 构建基础查询条件
     const conditions: any[] = [];
@@ -37,36 +39,32 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(classRecords.attendanceStatus, status as '已完成' | '已取消' | '已排课' | '学生缺席' | '补课'));
     }
     
-    // 角色权限过滤
-    if (userRole && userName) {
-      if (userRole === '全职导师' || userRole === '兼职导师') {
+    // 角色权限过滤（使用关联ID精确匹配）
+    if (userRole) {
+      if ((userRole === '全职导师' || userRole === '兼职导师') && teacherId) {
         // 导师只能看到自己的上课记录
-        // 通过导师名匹配
-        const teacherRecords = await db.select({ id: teachers.id })
-          .from(teachers)
-          .where(sql`name LIKE ${`%${userName}%`}`)
-          .limit(1);
+        conditions.push(eq(classRecords.teacherId, teacherId));
+      } else if (userRole === '规划顾问' && consultantId) {
+        // 规划顾问能看到自己负责的学生
+        // 查询 consultantId 对应的学生列表
+        const consultantStudents = await db.select({ id: students.id })
+          .from(students)
+          .where(eq(students.consultantId, consultantId));
         
-        if (teacherRecords.length > 0) {
-          conditions.push(eq(classRecords.teacherId, teacherRecords[0].id));
+        if (consultantStudents.length > 0) {
+          const studentIds = consultantStudents.map(s => s.id);
+          conditions.push(sql`${classRecords.studentId} IN (${studentIds.map(id => `'${id}'`).join(',')})`);
         } else {
-          // 如果找不到匹配的导师，返回空结果
+          // 如果没有负责的学生，返回空结果
           return NextResponse.json({
             success: true,
             records: [],
             pagination: { page, pageSize, total: 0, totalPages: 0 },
           });
         }
-      } else if (userRole === '规划顾问') {
-        // 规划顾问能看到自己负责的学生
-        const studentRecords = await db.select({ id: students.id })
-          .from(students)
-          .where(sql`admission_consultant_id IN (SELECT id FROM teachers WHERE name LIKE ${`%${userName}%`})`);
-        
-        if (studentRecords.length > 0) {
-          conditions.push(sql`${classRecords.studentId} IN (${studentRecords.map(s => `'${s.id}'`).join(',')})`);
-        }
-        // 如果没有关联学生，仍然可以看到全部（简化处理）
+      } else if (userRole === '学生' && studentId) {
+        // 学生只能看到自己的上课记录
+        conditions.push(eq(classRecords.studentId, studentId));
       }
       // 管理员：不做过滤，看全部
     }

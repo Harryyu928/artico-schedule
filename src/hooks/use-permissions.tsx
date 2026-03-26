@@ -79,6 +79,10 @@ interface UserContextType {
     role: UserRole;
     email?: string;
     avatar?: string;
+    // 关联实体ID（用于数据过滤）
+    teacherId?: string;      // 导师ID（导师角色关联）
+    studentId?: string;      // 学生ID（学生角色关联）
+    consultantId?: string;   // 顾问ID（规划顾问角色关联）
   } | null;
   isLoading: boolean;
   hasPermission: (permission: Permission) => boolean;
@@ -93,13 +97,50 @@ interface UserContextType {
 // 创建用户上下文
 const UserContext = createContext<UserContextType | null>(null);
 
-// 模拟用户数据
-const MOCK_USERS: Record<UserRole, { id: string; name: string; email: string }> = {
-  '管理员': { id: 'admin-001', name: '张主管', email: 'admin@artico.com' },
-  '规划顾问': { id: 'consultant-001', name: '李顾问', email: 'consultant@artico.com' },
-  '全职导师': { id: 'teacher-ft-001', name: '王导师', email: 'teacher@artico.com' },
-  '兼职导师': { id: 'teacher-pt-001', name: '赵导师', email: 'parttime@artico.com' },
-  '学生': { id: 'student-001', name: '小明', email: 'student@artico.com' },
+// 模拟用户数据（包含与业务实体的关联）
+// 注意：teacherId 应对应 teachers 表中的真实导师ID
+const MOCK_USERS: Record<UserRole, { 
+  id: string; 
+  name: string; 
+  email: string;
+  teacherId?: string;
+  studentId?: string;
+  consultantId?: string;
+}> = {
+  '管理员': { 
+    id: 'admin-001', 
+    name: '张主管', 
+    email: 'admin@artico.com',
+    // 管理员不需要关联实体，可查看全部数据
+  },
+  '规划顾问': { 
+    id: 'consultant-001', 
+    name: '李顾问', 
+    email: 'consultant@artico.com',
+    consultantId: 'consultant-001',
+    // 规划顾问可看到负责学生的数据
+  },
+  '全职导师': { 
+    id: 'teacher-ft-001', 
+    name: '李坤安', 
+    email: 'teacher@artico.com',
+    // 关联到 teachers 表中实际存在的导师（李坤安，有 2061 条上课记录）
+    teacherId: 'd0493a56-0278-4cd5-b28d-bfb96afdc097',
+  },
+  '兼职导师': { 
+    id: 'teacher-pt-001', 
+    name: '胡家辉', 
+    email: 'parttime@artico.com',
+    // 关联到 teachers 表中的兼职导师
+    teacherId: 'dea7fada-bcf3-4f5e-b0f5-d12ecc1d3543',
+  },
+  '学生': { 
+    id: 'student-001', 
+    name: '田政轩', 
+    email: 'student@artico.com',
+    // 关联到 students 表中实际存在的学生
+    studentId: 'b7bb772f-5ac8-48d0-83e5-670125c977cd',
+  },
 };
 
 // 用户 Provider 组件
@@ -120,6 +161,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       name: mockUser.name,
       role,
       email: mockUser.email,
+      // 设置关联实体ID
+      teacherId: mockUser.teacherId,
+      studentId: mockUser.studentId,
+      consultantId: mockUser.consultantId,
     });
     
     if (!savedRole) {
@@ -156,6 +201,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       name: mockUser.name,
       role,
       email: mockUser.email,
+      // 设置关联实体ID
+      teacherId: mockUser.teacherId,
+      studentId: mockUser.studentId,
+      consultantId: mockUser.consultantId,
     });
     localStorage.setItem('user_role', role);
   }, []);
@@ -173,6 +222,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       name: mockUser.name,
       role,
       email: mockUser.email,
+      // 更新关联实体ID
+      teacherId: mockUser.teacherId,
+      studentId: mockUser.studentId,
+      consultantId: mockUser.consultantId,
     } : null);
     localStorage.setItem('user_role', role);
   }, []);
