@@ -10,7 +10,6 @@ import {
   GraduationCap, 
   BookOpen, 
   Calendar,
-  Clock,
   Settings,
   Menu,
   X,
@@ -91,7 +90,6 @@ const navigationGroups: NavGroup[] = [
   {
     title: '排课安排',
     items: [
-      { name: '时间设置', href: '/availability', icon: Clock, description: '设置可用时间段' },
       { name: '学生时间表', href: '/time-table/student', icon: CalendarDays, description: '学生每周可用时间' },
       { name: '导师时间表', href: '/time-table/teacher', icon: CalendarDays, description: '导师每周可用时间' },
       { name: '排课管理', href: '/schedules', icon: Calendar, description: '自动/手动排课' },
