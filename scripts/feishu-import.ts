@@ -346,7 +346,7 @@ async function main() {
         '导师': teacherName,
         '课程类别': String(row['课程类别'] || '').replace(' / Fundamentals', '').replace(' / Project 1', '项目一').replace(' / Project 2', '项目二').replace(' / Project 3', '项目三').replace(' / Project 4', '项目四').trim(),
         '课程内容详情': String(row['课程内容'] || '').trim() || null,
-        '上课日期': classDate ? classDate.toISOString().split('T')[0] : null,
+        '上课日期': classDate ? classDate.getTime() : null,
         '年份': year,
         '月份': month,
         '星期': weekDay,
