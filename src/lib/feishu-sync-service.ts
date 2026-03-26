@@ -4,7 +4,7 @@
 
 import { getBitableService } from './feishu-bitable-service';
 import { db } from '@/db';
-import { students, teachers, classRecords } from '@/db/schema';
+import { students, teachers, classRecords, scheduleResults } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,6 +13,7 @@ export interface SyncStatus {
   teachers: { total: number; synced: number; failed: number };
   students: { total: number; synced: number; failed: number };
   classRecords: { total: number; synced: number; failed: number };
+  schedules: { total: number; synced: number; failed: number };
 }
 
 /**
@@ -68,7 +69,7 @@ export async function syncTeachersFromFeishu(): Promise<{ total: number; synced:
         teacherType: mapTeacherType(fields['导师类型'] as string),
         cooperationStatus: mapTeacherCooperationStatus(fields['合作状态'] as string),
         employmentStatus: mapTeacherEmploymentStatus(fields['就职状态'] as string),
-        majorDirections: parseArrayField(fields['专业方向']),
+        majorDirections: mapMajorDirections(parseArrayField(fields['专业方向'])),
         meetingLink: fields['会议链接'] as string || null,
         feishuRecordId: record.record_id,
         updatedAt: new Date(),
@@ -265,7 +266,7 @@ export async function syncClassRecordsFromFeishu(): Promise<{ total: number; syn
         courseId: '00000000-0000-0000-0000-000000000000', // 临时课程ID
         courseCategory: fields['课程类别'] as string || null,
         courseContentDetail: fields['课程内容详情'] as string || null,
-        classDate: classDate,
+        classDate: classDate ? classDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         classYear: fields['年份'] ? Number(fields['年份']) : classDate?.getFullYear(),
         classMonth: fields['月份'] ? Number(fields['月份']) : classDate ? classDate.getMonth() + 1 : null,
         weekDay: mapWeekDay(fields['星期'] as string) as any,
@@ -297,6 +298,109 @@ export async function syncClassRecordsFromFeishu(): Promise<{ total: number; syn
 }
 
 /**
+ * 同步排课安排数据
+ */
+export async function syncSchedulesFromFeishu(): Promise<{ total: number; synced: number; failed: number }> {
+  const service = getBitableService();
+  if (!service.isConfigured) {
+    throw new Error('飞书未配置');
+  }
+
+  // 检查排课安排表是否配置
+  if (!service.tableIds.schedules) {
+    console.log('[Sync] 排课安排表未配置，跳过同步');
+    return { total: 0, synced: 0, failed: 0 };
+  }
+
+  console.log('[Sync] 开始同步排课安排数据...');
+
+  // 从飞书获取所有排课记录
+  let allRecords: any[] = [];
+  let hasMore = true;
+  let pageToken: string | undefined;
+
+  while (hasMore) {
+    const result = await service.listRecords(service.tableIds.schedules, {
+      pageSize: 100,
+      pageToken,
+    });
+    
+    allRecords = allRecords.concat(result.records);
+    hasMore = result.hasMore;
+    pageToken = result.pageToken;
+  }
+
+  console.log(`[Sync] 从飞书获取 ${allRecords.length} 条排课记录`);
+
+  // 获取学生和导师映射
+  const allStudents = await db.select().from(students);
+  const allTeachers = await db.select().from(teachers);
+  
+  const studentMap = new Map(allStudents.map(s => [s.name, s]));
+  const teacherMap = new Map(allTeachers.map(t => [t.name, t]));
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const record of allRecords) {
+    try {
+      const fields = record.fields;
+      const scheduleNo = fields['排课编号'] as string;
+      
+      if (!scheduleNo) {
+        failed++;
+        continue;
+      }
+
+      // 检查是否已存在
+      const existing = await db.select().from(scheduleResults)
+        .where(eq(scheduleResults.scheduleId, scheduleNo))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        synced++;
+        continue; // 已存在，跳过
+      }
+
+      // 查找学生和导师
+      const studentName = fields['学生'] as string;
+      const teacherName = fields['导师'] as string;
+      const student = studentMap.get(studentName);
+      const teacher = teacherMap.get(teacherName);
+
+      // 解析日期
+      const planDate = fields['计划日期'] ? parseFeishuDate(fields['计划日期']) : null;
+
+      // 创建排课记录
+      await db.insert(scheduleResults).values({
+        id: uuidv4(),
+        scheduleId: scheduleNo,
+        studentId: student?.id || '00000000-0000-0000-0000-000000000000',
+        teacherId: teacher?.id || '00000000-0000-0000-0000-000000000000',
+        courseId: '00000000-0000-0000-0000-000000000000', // 临时课程ID
+        date: planDate ? planDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        weekDay: mapWeekDay(fields['星期'] as string) as any,
+        timeSlot: mapTimeSlot(fields['开始时间'] as string) as any,
+        hours: Number(fields['时长分钟']) ? Math.round(Number(fields['时长分钟']) / 60) : 2,
+        status: mapScheduleStatus(fields['状态'] as string) as any,
+        feishuEventId: fields['飞书日历事件ID'] as string || null,
+        notes: fields['备注'] as string || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      synced++;
+    } catch (error) {
+      console.error(`[Sync] 同步排课记录失败:`, error);
+      failed++;
+    }
+  }
+
+  console.log(`[Sync] 排课记录同步完成: ${synced} 成功, ${failed} 失败`);
+  return { total: allRecords.length, synced, failed };
+}
+
+/**
  * 全量同步
  */
 export async function syncAllFromFeishu(): Promise<SyncStatus> {
@@ -305,6 +409,7 @@ export async function syncAllFromFeishu(): Promise<SyncStatus> {
   const teachers = await syncTeachersFromFeishu();
   const students = await syncStudentsFromFeishu();
   const classRecordsResult = await syncClassRecordsFromFeishu();
+  const schedules = await syncSchedulesFromFeishu();
 
   console.log('[Sync] ========== 全量同步完成 ==========');
   
@@ -312,6 +417,7 @@ export async function syncAllFromFeishu(): Promise<SyncStatus> {
     teachers,
     students,
     classRecords: classRecordsResult,
+    schedules,
   };
 }
 
@@ -416,6 +522,22 @@ function mapClassStatus(status: string): string {
 
 function mapSettlementStatus(status: string): '已结' | '未结' {
   return status?.includes('已结') ? '已结' : '未结';
+}
+
+function mapScheduleStatus(status: string): '待确认' | '已确认' | '已完成' | '取消' {
+  if (!status) return '待确认';
+  if (status.includes('已确认')) return '已确认';
+  if (status.includes('已完成')) return '已完成';
+  if (status.includes('取消')) return '取消';
+  return '待确认';
+}
+
+function mapMajorDirections(directions: string[]): ('其他' | '游戏策划' | '游戏开发' | '游戏美术（三维）' | '游戏美术（二维）' | '动画设计' | '角色设计' | '3D建模' | '技术美术' | 'UI设计')[] {
+  const validDirections = ['其他', '游戏策划', '游戏开发', '游戏美术（三维）', '游戏美术（二维）', '动画设计', '角色设计', '3D建模', '技术美术', 'UI设计'] as const;
+  return directions.map(d => {
+    const found = validDirections.find(v => d.includes(v));
+    return found || '其他';
+  }) as any;
 }
 
 async function generateStudentId(): Promise<string> {

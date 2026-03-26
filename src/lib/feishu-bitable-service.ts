@@ -21,6 +21,7 @@ interface FeishuConfig {
     classRecords: string;
     contracts: string;
     applicationSchools: string;
+    schedules: string;
   };
 }
 
@@ -39,6 +40,7 @@ function getFeishuConfig(): FeishuConfig {
       classRecords: process.env.FEISHU_TABLE_CLASS_RECORDS || '',
       contracts: process.env.FEISHU_TABLE_CONTRACTS || '',
       applicationSchools: process.env.FEISHU_TABLE_APPLICATION_SCHOOLS || '',
+      schedules: process.env.FEISHU_TABLE_SCHEDULES || '',
     },
   };
 }

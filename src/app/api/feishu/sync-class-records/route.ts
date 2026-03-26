@@ -84,7 +84,9 @@ export async function POST(request: NextRequest) {
         const teacher = teacherMap.get(teacherName);
 
         // 解析日期
-        const classDate = fields['上课日期'] ? parseFeishuDate(fields['上课日期']) : new Date();
+        const parsedDate = fields['上课日期'] ? parseFeishuDate(fields['上课日期']) : null;
+        const classDateStr = parsedDate ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const classDate = parsedDate || new Date();
 
         // 创建上课记录
         await db.insert(classRecords).values({
@@ -95,9 +97,9 @@ export async function POST(request: NextRequest) {
           courseId: '00000000-0000-0000-0000-000000000000',
           courseCategory: fields['课程类别'] as string || null,
           courseContentDetail: fields['课程内容详情'] as string || null,
-          classDate: classDate,
-          classYear: fields['年份'] ? Math.round(Number(fields['年份'])) : classDate?.getFullYear(),
-          classMonth: fields['月份'] ? Math.round(Number(fields['月份'])) : classDate ? classDate.getMonth() + 1 : null,
+          classDate: classDateStr,
+          classYear: fields['年份'] ? Math.round(Number(fields['年份'])) : classDate.getFullYear(),
+          classMonth: fields['月份'] ? Math.round(Number(fields['月份'])) : classDate.getMonth() + 1,
           weekDay: mapWeekDay(fields['星期'] as string) as any,
           startTime: mapTimeSlot(fields['开始时间'] as string) as any,
           actualDuration: Math.round(Number(fields['实际时长(分钟)']) || 120),
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
           remainingHours: Math.round(Number(fields['剩余课时']) || 0),
           attendanceStatus: mapClassStatus(fields['到课情况'] as string) as any,
           isSettled: String(fields['是否已结课']).includes('true') || String(fields['结课状态']).includes('已结'),
-          settlementStatusFeishu: mapSettlementStatus(fields['结课状态'] as string) as any,
+          settlementStatus: mapSettlementStatus(fields['结课状态'] as string) as any,
           feishuRecordId: record.record_id,
           createdBy: 'system',
         });
