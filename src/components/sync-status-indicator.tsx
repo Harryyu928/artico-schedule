@@ -21,6 +21,12 @@ interface SyncStatus {
 export function SyncStatusIndicator() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // 只在客户端渲染
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 获取同步状态
   const fetchStatus = async () => {
@@ -55,11 +61,22 @@ export function SyncStatusIndicator() {
 
   // 初始化
   useEffect(() => {
+    if (!mounted) return;
     fetchStatus();
     // 每5分钟刷新状态
     const interval = setInterval(fetchStatus, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [mounted]);
+
+  // 服务端渲染时返回占位符
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+        <RefreshCw className="w-4 h-4 text-gray-400" />
+        <span className="text-gray-400">加载中...</span>
+      </div>
+    );
+  }
 
   if (!status) return null;
 
