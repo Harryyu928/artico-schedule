@@ -168,6 +168,12 @@ export default function ClassRecordsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ClassRecord | null>(null);
   const { toast } = useToast();
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // 新记录表单 - 完整版
   const [formData, setFormData] = useState({
@@ -308,14 +314,36 @@ export default function ClassRecordsPage() {
 
   useEffect(() => {
     fetchRecords();
-  }, []);
+  }, [currentPage, pageSize, statusFilter]);
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchRecords();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchRecords = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/class-records', { credentials: 'include' });
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(searchTerm && { search: searchTerm }),
+      });
+      const response = await fetch(`/api/class-records?${params}`, { credentials: 'include' });
       const data = await response.json();
       setRecords(data.records || []);
+      if (data.pagination) {
+        setTotalRecords(data.pagination.total);
+        setTotalPages(data.pagination.totalPages);
+      }
     } catch (error) {
       console.error('获取上课记录失败:', error);
       // 使用模拟数据
@@ -1352,6 +1380,65 @@ AP 学生作品赏析
           )}
         </CardContent>
       </Card>
+
+      {/* 分页控件 */}
+      {totalRecords > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border">
+          <div className="text-sm text-gray-500">
+            共 {totalRecords} 条记录，第 {currentPage} / {totalPages} 页
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              首页
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              上一页
+            </Button>
+            <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded text-sm font-medium">
+              {currentPage}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              下一页
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              末页
+            </Button>
+            <select
+              className="border rounded px-2 py-1 text-sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={20}>20条/页</option>
+              <option value={50}>50条/页</option>
+              <option value={100}>100条/页</option>
+              <option value={200}>200条/页</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* 创建记录对话框 */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

@@ -11,18 +11,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { classRecords, students, teachers, courses } from '@/db/schema';
-import { eq, desc, and, gte, like, or } from 'drizzle-orm';
+import { eq, desc, and, gte, like, or, sql, count } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { generateAndUploadPDF } from '@/lib/pdf-generator';
 
-// GET - 获取上课记录列表
+// GET - 获取上课记录列表（支持分页）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '50', 10);
     
+    // 构建基础查询条件
+    const conditions: any[] = [];
+    
+    // 状态筛选
+    if (status && status !== 'all') {
+      conditions.push(eq(classRecords.attendanceStatus, status as '已完成' | '已取消' | '已排课' | '学生缺席' | '补课'));
+    }
+    
+    // 搜索 - 需要特殊处理
+    const hasSearch = search && search.trim();
+    
+    // 先获取总数
+    const countQuery = db.select({ count: sql<number>`count(*)` })
+      .from(classRecords)
+      .leftJoin(students, eq(classRecords.studentId, students.id))
+      .leftJoin(teachers, eq(classRecords.teacherId, teachers.id))
+      .leftJoin(courses, eq(classRecords.courseId, courses.id));
+    
+    let totalResult;
+    if (hasSearch) {
+      totalResult = await countQuery.where(
+        or(
+          like(students.name, `%${search}%`),
+          like(teachers.name, `%${search}%`),
+          like(courses.name, `%${search}%`),
+          like(classRecords.recordId, `%${search}%`)
+        )
+      );
+    } else if (conditions.length > 0) {
+      totalResult = await countQuery.where(and(...conditions));
+    } else {
+      totalResult = await countQuery;
+    }
+    
+    const total = Number(totalResult[0]?.count) || 0;
+    
+    // 获取数据
     let query = db.select({
       id: classRecords.id,
       recordId: classRecords.recordId,
@@ -63,16 +102,10 @@ export async function GET(request: NextRequest) {
     .from(classRecords)
     .leftJoin(students, eq(classRecords.studentId, students.id))
     .leftJoin(teachers, eq(classRecords.teacherId, teachers.id))
-    .leftJoin(courses, eq(classRecords.courseId, courses.id))
-    .$dynamic();
+    .leftJoin(courses, eq(classRecords.courseId, courses.id));
     
-    // 状态筛选
-    if (status && status !== 'all') {
-      query = query.where(eq(classRecords.attendanceStatus, status as '已完成' | '已取消' | '已排课' | '学生缺席' | '补课')) as typeof query;
-    }
-    
-    // 搜索
-    if (search) {
+    // 应用筛选条件
+    if (hasSearch) {
       query = query.where(
         or(
           like(students.name, `%${search}%`),
@@ -81,13 +114,24 @@ export async function GET(request: NextRequest) {
           like(classRecords.recordId, `%${search}%`)
         )
       ) as typeof query;
+    } else if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
     }
     
-    const records = await query.orderBy(desc(classRecords.createdAt)).limit(100);
+    const records = await query
+      .orderBy(desc(classRecords.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
     
     return NextResponse.json({
       success: true,
       records,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     });
   } catch (error) {
     console.error('获取上课记录失败:', error);
