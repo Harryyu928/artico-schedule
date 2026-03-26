@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
           const cookieStore = await cookies();
           cookieStore.set('user_id', user.id, {
             httpOnly: true,
-            secure: true,
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7, // 7天
             path: '/',
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
           const cookieStore = await cookies();
           cookieStore.set('user_id', user.id, {
             httpOnly: true,
-            secure: true,
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7,
             path: '/',
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
         const cookieStore = await cookies();
         cookieStore.set('user_id', newUserId, {
           httpOnly: true,
-          secure: true,
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           maxAge: 60 * 60 * 24 * 7,
           path: '/',
