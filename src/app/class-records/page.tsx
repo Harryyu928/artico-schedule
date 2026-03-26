@@ -157,6 +157,9 @@ export default function ClassRecordsPage() {
         pageSize: pageSize.toString(),
         ...(statusFilter !== 'all' && { status: statusFilter }),
         ...(searchTerm && { search: searchTerm }),
+        // 传递用户角色和名字用于数据过滤
+        ...(user?.role && { userRole: user.role }),
+        ...(user?.name && { userName: user.name }),
       });
       const response = await fetch(`/api/class-records?${params}`, { credentials: 'include' });
       const data = await response.json();

@@ -16,7 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { generateAndUploadPDF } from '@/lib/pdf-generator';
 
-// GET - 获取上课记录列表（支持分页）
+// GET - 获取上课记录列表（支持分页和角色过滤）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -25,12 +25,50 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '50', 10);
     
+    // 用户角色过滤参数
+    const userRole = searchParams.get('userRole');
+    const userName = searchParams.get('userName');
+    
     // 构建基础查询条件
     const conditions: any[] = [];
     
     // 状态筛选
     if (status && status !== 'all') {
       conditions.push(eq(classRecords.attendanceStatus, status as '已完成' | '已取消' | '已排课' | '学生缺席' | '补课'));
+    }
+    
+    // 角色权限过滤
+    if (userRole && userName) {
+      if (userRole === '全职导师' || userRole === '兼职导师') {
+        // 导师只能看到自己的上课记录
+        // 通过导师名匹配
+        const teacherRecords = await db.select({ id: teachers.id })
+          .from(teachers)
+          .where(sql`name LIKE ${`%${userName}%`}`)
+          .limit(1);
+        
+        if (teacherRecords.length > 0) {
+          conditions.push(eq(classRecords.teacherId, teacherRecords[0].id));
+        } else {
+          // 如果找不到匹配的导师，返回空结果
+          return NextResponse.json({
+            success: true,
+            records: [],
+            pagination: { page, pageSize, total: 0, totalPages: 0 },
+          });
+        }
+      } else if (userRole === '规划顾问') {
+        // 规划顾问能看到自己负责的学生
+        const studentRecords = await db.select({ id: students.id })
+          .from(students)
+          .where(sql`admission_consultant_id IN (SELECT id FROM teachers WHERE name LIKE ${`%${userName}%`})`);
+        
+        if (studentRecords.length > 0) {
+          conditions.push(sql`${classRecords.studentId} IN (${studentRecords.map(s => `'${s.id}'`).join(',')})`);
+        }
+        // 如果没有关联学生，仍然可以看到全部（简化处理）
+      }
+      // 管理员：不做过滤，看全部
     }
     
     // 搜索 - 需要特殊处理
@@ -44,8 +82,10 @@ export async function GET(request: NextRequest) {
       .leftJoin(courses, eq(classRecords.courseId, courses.id));
     
     let totalResult;
+    const allConditions = [...conditions];
+    
     if (hasSearch) {
-      totalResult = await countQuery.where(
+      allConditions.push(
         or(
           like(students.name, `%${search}%`),
           like(teachers.name, `%${search}%`),
@@ -53,8 +93,10 @@ export async function GET(request: NextRequest) {
           like(classRecords.recordId, `%${search}%`)
         )
       );
-    } else if (conditions.length > 0) {
-      totalResult = await countQuery.where(and(...conditions));
+    }
+    
+    if (allConditions.length > 0) {
+      totalResult = await countQuery.where(and(...allConditions));
     } else {
       totalResult = await countQuery;
     }
@@ -105,17 +147,8 @@ export async function GET(request: NextRequest) {
     .leftJoin(courses, eq(classRecords.courseId, courses.id));
     
     // 应用筛选条件
-    if (hasSearch) {
-      query = query.where(
-        or(
-          like(students.name, `%${search}%`),
-          like(teachers.name, `%${search}%`),
-          like(courses.name, `%${search}%`),
-          like(classRecords.recordId, `%${search}%`)
-        )
-      ) as typeof query;
-    } else if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
+    if (allConditions.length > 0) {
+      query = query.where(and(...allConditions)) as typeof query;
     }
     
     const records = await query
