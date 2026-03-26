@@ -29,11 +29,16 @@ import {
 
 // 枚举定义
 export const majorDirectionEnum = pgEnum('major_direction', [
-  '游戏设计',
-  '游戏美术',
+  '游戏策划',
+  '游戏开发',
+  '游戏美术（三维）',
+  '游戏美术（二维）',
+  '动画设计',
   '角色设计',
-  '3D游戏美术',
-  '动画',
+  '3D建模',
+  '技术美术',
+  'UI设计',
+  '其他',
 ] as const);
 
 export const applicationCountryEnum = pgEnum('application_country', [
@@ -41,17 +46,29 @@ export const applicationCountryEnum = pgEnum('application_country', [
   '英国',
   '加拿大',
   '日本',
+  '澳大利亚',
+  '欧洲',
+  '其他',
 ] as const);
 
 export const studyStageEnum = pgEnum('study_stage', [
   '基础阶段',
-  '项目阶段',
-  '作品集打磨',
+  '项目一',
+  '项目二',
+  '项目三',
+  '项目四',
+  '作品集阶段',
+  '申请阶段',
+  '已毕业',
 ] as const);
 
 export const courseTypeEnum = pgEnum('course_type', [
   '基础课',
   '项目课',
+  '作业辅导课',
+  '课后延时辅导',
+  '面试辅导',
+  '定制课程',
 ] as const);
 
 export const courseCategoryEnum = pgEnum('course_category', [
@@ -171,29 +188,45 @@ export const projectPhaseEnum = pgEnum('project_phase', [
 
 // ========== 飞书多维表格对接新增枚举 ==========
 
-// 学员状态枚举
+// 学员状态枚举（根据实际数据）
 export const studentStatusEnum = pgEnum('student_status', [
   '在读',
   '停课',
   '毕业',
+  '退学',
 ] as const);
 
-// 学员类别枚举
+// 学员类别枚举（根据实际数据）
 export const studentCategoryEnum = pgEnum('student_category', [
+  'VIP 3',
   'VIP 5',
-  'FV-Portfolio作品集',
-  'FV-基础能力',
-  'FV-项目课',
-  '常规',
+  'VIP 6',
+  'VIP 7',
+  'VIP 8',
+  'VIP 10',
+  'VIP 12',
+  'FV-Portfolio作品集（限课时）',
+  'FV-Portfolio作品集（不限课时）',
+  'FV-Portfolio作品集+文书（限课时）',
+  'FV-Portfolio作品集+文书（不限课时）',
+  'FV-定制课程',
+  '单项目',
+  '项目代做',
+  '其他',
 ] as const);
 
-// 课程类别枚举（飞书维度）
+// 课程类别枚举（飞书维度，根据实际数据）
 export const courseCategoryFeishuEnum = pgEnum('course_category_feishu', [
   '基础能力提升课',
   '项目一',
   '项目二',
   '项目三',
-  '作品集打磨',
+  '项目四',
+  '作业辅导课',
+  '课后延时辅导',
+  '面试辅导',
+  '定制课程',
+  'Other Project',
 ] as const);
 
 // 导师合作性质枚举
@@ -210,26 +243,30 @@ export const teacherEmploymentStatusEnum = pgEnum('teacher_employment_status', [
   '试用期',
 ] as const);
 
-// 导师专业方向枚举
+// 导师专业方向枚举（根据实际数据）
 export const teacherMajorDirectionEnum = pgEnum('teacher_major_direction', [
+  '游戏策划',
   '游戏开发',
+  '游戏美术（三维）',
+  '游戏美术（二维）',
   '动画设计',
-  '游戏美术',
   '角色设计',
   '3D建模',
+  '技术美术',
   'UI设计',
   '其他',
 ] as const);
 
-// 证件类型枚举
+// 证件类型枚举（根据实际数据）
 export const idTypeEnum = pgEnum('id_type', [
   '身份证',
   '护照',
   '港澳通行证',
+  '台湾居民来往大陆通行证',
   '其他',
 ] as const);
 
-// 到课情况枚举
+// 到课情况枚举（根据实际数据）
 export const attendanceStatusFeishuEnum = pgEnum('attendance_status_feishu', [
   '正常',
   '迟到',
