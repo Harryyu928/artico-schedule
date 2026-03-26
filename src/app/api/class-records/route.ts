@@ -15,6 +15,7 @@ import { eq, desc, and, gte, like, or, sql, count } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { generateAndUploadPDF } from '@/lib/pdf-generator';
+import { classFeedbackService } from '@/lib/class-feedback-service';
 
 // GET - 获取上课记录列表（支持分页和角色过滤）
 export async function GET(request: NextRequest) {

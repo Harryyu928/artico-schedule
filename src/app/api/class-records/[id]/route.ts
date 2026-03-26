@@ -23,6 +23,7 @@ import {
   completeTaskByName, 
   getEntityWorkflowInstance 
 } from '@/lib/workflow-service';
+import { classFeedbackService } from '@/lib/class-feedback-service';
 
 // GET - 获取单个记录详情
 export async function GET(
@@ -190,6 +191,17 @@ export async function PUT(
       
       // 2. 完成相关工作流任务
       await triggerWorkflowLinkage(record.studentId, '填写上课记录');
+      
+      // 3. 触发课后反馈流程（异步执行，不阻塞响应）
+      classFeedbackService.processCompletedRecord(id).then(result => {
+        if (result.success) {
+          console.log(`[ClassFeedback] 课后反馈流程完成: PDF=${!!result.pdfUrl}, 消息ID=${result.messageId}`);
+        } else {
+          console.error(`[ClassFeedback] 课后反馈流程失败:`, result.error);
+        }
+      }).catch(error => {
+        console.error('[ClassFeedback] 课后反馈流程异常:', error);
+      });
     }
 
     // 模块联动：当学生签字完成时

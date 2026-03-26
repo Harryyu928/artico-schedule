@@ -199,7 +199,7 @@ export class FeishuClient {
    */
   async sendTextMessage(
     receiveId: string,
-    receiveIdType: 'open_id' | 'user_id' | 'union_id' | 'email',
+    receiveIdType: 'open_id' | 'user_id' | 'union_id' | 'email' | 'chat_id',
     text: string
   ): Promise<string> {
     const result = await this.request<{ message_id: string }>('/im/v1/messages', {
@@ -221,7 +221,7 @@ export class FeishuClient {
    */
   async sendCardMessage(
     receiveId: string,
-    receiveIdType: 'open_id' | 'user_id' | 'union_id' | 'email',
+    receiveIdType: 'open_id' | 'user_id' | 'union_id' | 'email' | 'chat_id',
     card: Record<string, unknown>
   ): Promise<string> {
     const result = await this.request<{ message_id: string }>('/im/v1/messages', {
