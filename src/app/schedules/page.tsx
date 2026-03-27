@@ -23,7 +23,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  CalendarDays
+  CalendarDays,
+  Sun,
+  Sunrise,
+  CalendarRange
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,8 +111,19 @@ interface Course {
 
 type SortField = 'scheduleId' | 'date' | 'studentName' | 'teacherName' | 'courseName' | 'hours' | 'status' | 'createdAt';
 type SortOrder = 'asc' | 'desc';
+type TimeFilter = 'all' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek' | 'thisMonth';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+// 时间筛选选项配置
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string; icon: React.ReactNode }[] = [
+  { value: 'all', label: '全部', icon: <CalendarRange className="w-4 h-4" /> },
+  { value: 'today', label: '今日', icon: <Sun className="w-4 h-4" /> },
+  { value: 'tomorrow', label: '明日', icon: <Sunrise className="w-4 h-4" /> },
+  { value: 'thisWeek', label: '本周', icon: <CalendarDays className="w-4 h-4" /> },
+  { value: 'nextWeek', label: '下周', icon: <Calendar className="w-4 h-4" /> },
+  { value: 'thisMonth', label: '本月', icon: <CalendarRange className="w-4 h-4" /> },
+];
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -135,6 +149,24 @@ export default function SchedulesPage() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
+  // 时间筛选状态
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+
+  // 当时间筛选改变时，同步日历视图的周
+  useEffect(() => {
+    if (viewMode === 'calendar') {
+      if (timeFilter === 'thisWeek') {
+        setCurrentWeekStart(getCurrentWeekStart());
+      } else if (timeFilter === 'nextWeek') {
+        const nextMonday = new Date();
+        const dayOfWeek = nextMonday.getDay();
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        nextMonday.setDate(nextMonday.getDate() + diffToMonday + 7);
+        setCurrentWeekStart(nextMonday.toISOString().split('T')[0]);
+      }
+    }
+  }, [timeFilter, viewMode]);
+
   // 新排课表单
   const [newSchedule, setNewSchedule] = useState({
     studentId: '',
@@ -157,18 +189,74 @@ export default function SchedulesPage() {
     return monday.toISOString().split('T')[0];
   }
 
+  // 根据时间筛选获取日期范围
+  function getDateRange(filter: TimeFilter): { startDate?: string; endDate?: string } {
+    const today = new Date();
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+    switch (filter) {
+      case 'today':
+        return { startDate: formatDate(today), endDate: formatDate(today) };
+      
+      case 'tomorrow':
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        return { startDate: formatDate(tomorrow), endDate: formatDate(tomorrow) };
+      
+      case 'thisWeek':
+        const weekStart = new Date(today);
+        const dayOfWeek = today.getDay();
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        weekStart.setDate(today.getDate() + diffToMonday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        return { startDate: formatDate(weekStart), endDate: formatDate(weekEnd) };
+      
+      case 'nextWeek':
+        const nextWeekStart = new Date(today);
+        const nextDayOfWeek = today.getDay();
+        const nextDiffToMonday = nextDayOfWeek === 0 ? -6 : 1 - nextDayOfWeek;
+        nextWeekStart.setDate(today.getDate() + nextDiffToMonday + 7);
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        return { startDate: formatDate(nextWeekStart), endDate: formatDate(nextWeekEnd) };
+      
+      case 'thisMonth':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        return { startDate: formatDate(monthStart), endDate: formatDate(monthEnd) };
+      
+      case 'all':
+      default:
+        return {};
+    }
+  }
+
   // 获取排课列表
   useEffect(() => {
     fetchSchedules();
     fetchStudents();
     fetchTeachers();
     fetchCourses();
-  }, []);
+  }, [timeFilter]);
 
   const fetchSchedules = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/schedule');
+      
+      // 根据时间筛选获取日期范围
+      const dateRange = getDateRange(timeFilter);
+      const params = new URLSearchParams();
+      
+      if (dateRange.startDate) {
+        params.append('startDate', dateRange.startDate);
+      }
+      if (dateRange.endDate) {
+        params.append('endDate', dateRange.endDate);
+      }
+      
+      const url = `/api/schedule${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url);
       const data = await response.json();
       setSchedules(data.schedules || []);
     } catch (error) {
@@ -691,6 +779,66 @@ export default function SchedulesPage() {
         }
       />
 
+      {/* 时间筛选快捷按钮 */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="mb-6"
+      >
+        <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground mr-2">时间筛选:</span>
+              {TIME_FILTER_OPTIONS.map((option) => (
+                <motion.div
+                  key={option.value}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Button
+                    variant={timeFilter === option.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setTimeFilter(option.value);
+                      setCurrentPage(1);
+                    }}
+                    className={`
+                      ${timeFilter === option.value 
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md' 
+                        : 'border-orange-200 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300'
+                      }
+                    `}
+                  >
+                    {option.icon}
+                    <span className="ml-1">{option.label}</span>
+                  </Button>
+                </motion.div>
+              ))}
+              
+              {/* 当前筛选范围提示 */}
+              {timeFilter !== 'all' && (
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-xs text-muted-foreground ml-2 px-2 py-1 bg-orange-50 dark:bg-orange-900/20 rounded-full"
+                >
+                  {(() => {
+                    const range = getDateRange(timeFilter);
+                    if (range.startDate && range.endDate) {
+                      return range.startDate === range.endDate 
+                        ? `${range.startDate}`
+                        : `${range.startDate} ~ ${range.endDate}`;
+                    }
+                    return '';
+                  })()}
+                </motion.span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* 统计卡片 */}
       <motion.div
         variants={staggerContainerVariants}
@@ -1079,25 +1227,49 @@ export default function SchedulesPage() {
               >
                 {/* 周导航 */}
                 <div className="flex items-center justify-between mb-4">
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      const start = new Date(currentWeekStart);
-                      start.setDate(start.getDate() - 7);
-                      setCurrentWeekStart(start.toISOString().split('T')[0]);
-                    }}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                  <span className="font-medium text-orange-600">{getWeekDateRange()}</span>
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      const start = new Date(currentWeekStart);
-                      start.setDate(start.getDate() + 7);
-                      setCurrentWeekStart(start.toISOString().split('T')[0]);
-                    }}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
+                  <div className="flex items-center gap-2">
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const start = new Date(currentWeekStart);
+                        start.setDate(start.getDate() - 7);
+                        setCurrentWeekStart(start.toISOString().split('T')[0]);
+                        setTimeFilter('all'); // 切换周时重置时间筛选
+                      }}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          setCurrentWeekStart(getCurrentWeekStart());
+                          setTimeFilter('thisWeek');
+                        }}
+                        className="text-orange-600 hover:bg-orange-50"
+                      >
+                        本周
+                      </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        const start = new Date(currentWeekStart);
+                        start.setDate(start.getDate() + 7);
+                        setCurrentWeekStart(start.toISOString().split('T')[0]);
+                        setTimeFilter('all'); // 切换周时重置时间筛选
+                      }}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-orange-600">{getWeekDateRange()}</span>
+                    {timeFilter !== 'all' && (
+                      <Badge className="bg-orange-100 text-orange-700 text-xs">
+                        {TIME_FILTER_OPTIONS.find(o => o.value === timeFilter)?.label}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* 日历网格 */}
