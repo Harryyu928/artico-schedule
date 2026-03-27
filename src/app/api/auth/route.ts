@@ -119,6 +119,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
     
+    // 判断是否需要 secure cookie
+    // 如果是 HTTPS 或者配置了生产域名，则需要 secure
+    const isSecure = process.env.NODE_ENV === 'production' || 
+                     !!process.env.COZE_PROJECT_DOMAIN_DEFAULT?.startsWith('https');
+    
     if (action === 'logout') {
       // 登出
       const cookieStore = await cookies();
@@ -144,7 +149,7 @@ export async function POST(request: NextRequest) {
           const cookieStore = await cookies();
           cookieStore.set('user_id', user.id, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure,
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7, // 7天
             path: '/',
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
           const cookieStore = await cookies();
           cookieStore.set('user_id', user.id, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure,
             sameSite: 'lax',
             maxAge: 60 * 60 * 24 * 7,
             path: '/',
@@ -244,7 +249,7 @@ export async function POST(request: NextRequest) {
         const cookieStore = await cookies();
         cookieStore.set('user_id', newUserId, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: isSecure,
           sameSite: 'lax',
           maxAge: 60 * 60 * 24 * 7,
           path: '/',
