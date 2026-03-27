@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Calendar, Clock, Copy, RefreshCw } from 'lucide-react';
 
 export default async function TeacherTimeTablePage() {
   // 获取当前登录用户
@@ -53,14 +54,23 @@ export default async function TeacherTimeTablePage() {
       {/* 时间表标签页 */}
       <Tabs defaultValue="weekly" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="template">默认时间模板</TabsTrigger>
-          <TabsTrigger value="weekly">本周时间表</TabsTrigger>
+          <TabsTrigger value="weekly" className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            本周时间表
+          </TabsTrigger>
+          <TabsTrigger value="template" className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            默认时间模板
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="template">
           <Card className="border-blue-200">
             <CardHeader>
-              <CardTitle className="text-lg">📝 设置默认时间模板</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-500" />
+                设置默认时间模板
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
                 这是您每周固定的可用时间，系统每周会自动复制到本周时间表
               </p>
@@ -69,6 +79,7 @@ export default async function TeacherTimeTablePage() {
               <TimeTableEditor
                 mode="teacher"
                 userId={userId}
+                isWeekly={false}
               />
             </CardContent>
           </Card>
@@ -77,66 +88,51 @@ export default async function TeacherTimeTablePage() {
         <TabsContent value="weekly">
           <Card className="border-green-200">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">📆 本周时间表</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    本周实际可用时间，可在默认模板基础上调整
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  🔄 从模板复制
-                </Button>
-              </div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-green-500" />
+                本周时间表
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                本周实际可用时间，可在默认模板基础上调整。已排课的时间段显示为蓝色
+              </p>
             </CardHeader>
             <CardContent>
               <TimeTableEditor
                 mode="teacher"
                 userId={userId}
+                isWeekly={true}
               />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* 本周统计 */}
+      {/* 常见问题 */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-lg">📊 本周统计</CardTitle>
+          <CardTitle className="text-lg">❓ 常见问题</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl font-bold text-orange-500">20</div>
-              <div className="text-sm text-muted-foreground">可用时间段</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl font-bold text-blue-500">40</div>
-              <div className="text-sm text-muted-foreground">可排课时</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl font-bold text-green-500">12</div>
-              <div className="text-sm text-muted-foreground">已排课时</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl font-bold text-purple-500">28</div>
-              <div className="text-sm text-muted-foreground">剩余课时</div>
-            </div>
+        <CardContent className="space-y-4 text-sm">
+          <div>
+            <h4 className="font-medium">Q: 默认模板和本周时间表有什么区别？</h4>
+            <p className="text-muted-foreground mt-1">
+              A: 默认模板是您每周固定的可用时间，本周时间表是当前周的实际可用时间。
+              您可以从模板快速复制到本周，然后根据实际情况调整。
+            </p>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 快捷操作 */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">⚡ 快捷操作</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline">📝 请假申请</Button>
-            <Button variant="outline">➕ 临时加课</Button>
-            <Button variant="outline">📧 批量通知学生</Button>
-            <Button variant="outline">📅 导出日程</Button>
+          <div>
+            <h4 className="font-medium">Q: 蓝色格子是什么意思？</h4>
+            <p className="text-muted-foreground mt-1">
+              A: 蓝色格子表示该时间段已经有课程安排，无法直接修改。
+              如需调整，请先联系规划顾问取消或调整排课。
+            </p>
+          </div>
+          <div>
+            <h4 className="font-medium">Q: 临时有事无法上课怎么办？</h4>
+            <p className="text-muted-foreground mt-1">
+              A: 点击"请假"按钮，选择日期和时间段提交请假申请。
+              请提前通知学生和规划顾问。
+            </p>
           </div>
         </CardContent>
       </Card>

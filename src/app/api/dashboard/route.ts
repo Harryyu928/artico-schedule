@@ -455,7 +455,7 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
         { label: '课程管理', href: '/courses', icon: 'BookOpen' },
         { label: '排课管理', href: '/schedules', icon: 'Calendar' },
         { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
-        { label: '工作流管理', href: '/workflows', icon: 'Workflow' },
+        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock' },
         { label: '数据导入', href: '/import', icon: 'Upload' },
         { label: '系统设置', href: '/settings', icon: 'Settings' },
       ],
@@ -664,7 +664,7 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
       quickActions: [
         { label: '我的学生', href: '/students?consultantId=' + user.id, icon: 'Users' },
         { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
-        { label: '时间预留', href: '/availability?userId=' + user.id, icon: 'Clock' },
+        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock' },
         { label: '排课管理', href: '/schedules', icon: 'Calendar' },
       ],
     },
