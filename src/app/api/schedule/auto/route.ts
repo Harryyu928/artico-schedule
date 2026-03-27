@@ -26,7 +26,9 @@ const WEEK_DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '
 interface ScheduleRequest {
   studentId?: string;           // 指定学生（可选）
   teacherId?: string;           // 指定导师（可选）
+  courseId?: string;            // 指定课程（可选）
   selectionFormId?: string;     // 指定选课单（可选）
+  selectionItemId?: string;     // 指定选课单项目（可选）
   weekStart?: string;           // 开始日期 YYYY-MM-DD
   weeks?: number;               // 排课周数，默认1周
   hoursPerWeek?: number;        // 每周课时，默认2小时
@@ -66,19 +68,37 @@ export async function POST(request: NextRequest) {
       for (const student of studentsData) {
         try {
           // 获取学生的选课单
-          const selectionForms = await db.select()
+          let selectionFormsQuery = db.select()
             .from(courseSelectionForms)
             .where(eq(courseSelectionForms.studentId, student.id));
+          
+          // 如果指定了选课单，只处理该选课单
+          if (body.selectionFormId) {
+            selectionFormsQuery = db.select()
+              .from(courseSelectionForms)
+              .where(eq(courseSelectionForms.id, body.selectionFormId));
+          }
+          
+          const selectionForms = await selectionFormsQuery;
 
           if (selectionForms.length === 0) continue;
 
           // 获取所有选课单的项目
           const formIds = selectionForms.map(f => f.id);
-          const selectionItems = formIds.length > 0
-            ? await db.select()
+          let selectionItemsQuery = formIds.length > 0
+            ? db.select()
                 .from(courseSelectionItems)
                 .where(inArray(courseSelectionItems.formId, formIds))
-            : [];
+            : null;
+          
+          // 如果指定了单个课程项，只处理该项
+          if (body.selectionItemId) {
+            selectionItemsQuery = db.select()
+              .from(courseSelectionItems)
+              .where(eq(courseSelectionItems.id, body.selectionItemId));
+          }
+          
+          const selectionItems = selectionItemsQuery ? await selectionItemsQuery : [];
 
           if (selectionItems.length === 0) continue;
 
@@ -102,6 +122,9 @@ export async function POST(request: NextRequest) {
 
           // 为每个选课项目排课
           for (const item of selectionItems) {
+            // 如果指定了课程，只处理该课程
+            if (body.courseId && item.courseId !== body.courseId) continue;
+            
             // 检查是否已排课时数
             const plannedHours = item.plannedHours || 0;
             const scheduledHours = item.scheduledHours || 0;
