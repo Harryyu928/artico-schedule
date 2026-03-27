@@ -56,6 +56,10 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { generateSelectionFormImage } from '@/lib/share-image-service';
 import { cn } from '@/lib/utils';
+import ScheduleConflictDialog, { 
+  ScheduleConflict, 
+  parseConflictType 
+} from '@/components/schedule/schedule-conflict-dialog';
 
 interface SelectionForm {
   id: string;
@@ -146,6 +150,10 @@ export default function SelectionFormDetailPage() {
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [scheduling, setScheduling] = useState<string | null>(null);
+
+  // 冲突详情弹窗
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
 
   // 排课对话框
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
@@ -466,11 +474,22 @@ export default function SelectionFormDetailPage() {
         });
         fetchFormDetail();
       } else {
-        toast({
-          title: '自动排课失败',
-          description: result.conflicts?.[0]?.reason || '未找到合适的排课时间',
-          variant: 'destructive',
-        });
+        // 解析冲突类型
+        const conflictList: ScheduleConflict[] = (result.conflicts || []).map((c: any) => ({
+          ...c,
+          type: c.type || parseConflictType(c.reason),
+        }));
+        
+        if (conflictList.length > 0) {
+          setConflicts(conflictList);
+          setConflictDialogOpen(true);
+        } else {
+          toast({
+            title: '自动排课失败',
+            description: '未找到合适的排课时间',
+            variant: 'destructive',
+          });
+        }
       }
     } catch (error) {
       console.error('自动排课失败:', error);
@@ -516,10 +535,29 @@ export default function SelectionFormDetailPage() {
 
       const result = await response.json();
 
-      toast({
-        title: '自动排课完成',
-        description: `成功 ${result.scheduled} 节，失败 ${result.failed} 节`,
-      });
+      // 如果有冲突，显示冲突详情弹窗
+      if (result.conflicts && result.conflicts.length > 0) {
+        const conflictList: ScheduleConflict[] = result.conflicts.map((c: any) => ({
+          ...c,
+          type: c.type || parseConflictType(c.reason),
+        }));
+        setConflicts(conflictList);
+        
+        toast({
+          title: '自动排课完成',
+          description: `成功 ${result.scheduled} 节，失败 ${result.failed} 节`,
+          variant: result.scheduled > 0 ? 'default' : 'destructive',
+        });
+        
+        if (result.failed > 0) {
+          setConflictDialogOpen(true);
+        }
+      } else {
+        toast({
+          title: '自动排课成功',
+          description: `已安排 ${result.scheduled} 节课程`,
+        });
+      }
 
       fetchFormDetail();
     } catch (error) {
@@ -1275,6 +1313,14 @@ export default function SelectionFormDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 排课冲突详情弹窗 */}
+      <ScheduleConflictDialog
+        open={conflictDialogOpen}
+        onOpenChange={setConflictDialogOpen}
+        conflicts={conflicts}
+        onNavigate={(path) => router.push(path)}
+      />
     </div>
   );
 }

@@ -116,6 +116,10 @@ export async function POST(request: NextRequest) {
               studentId: student.id,
               studentName: student.name,
               reason: '学生没有可用时间',
+              type: 'no_student_time',
+              details: {
+                studentAvailableTimes: [],
+              },
             });
             continue;
           }
@@ -158,6 +162,10 @@ export async function POST(request: NextRequest) {
                 courseId: course.id,
                 courseName: course.name,
                 reason: '没有导师可以教授该课程',
+                type: 'no_teacher',
+                details: {
+                  eligibleTeachers: [],
+                },
               });
               continue;
             }
@@ -249,12 +257,35 @@ export async function POST(request: NextRequest) {
             }
 
             if (!scheduled) {
+              // 收集详细的冲突信息
+              const studentAvailableTimes = studentTimes.map(t => ({
+                weekDay: t.weekDay,
+                timeSlot: t.timeSlot,
+              }));
+              
+              const conflictingSchedules = existingSchedules.slice(0, 5).map(s => ({
+                date: s.date,
+                timeSlot: s.timeSlot,
+                weekDay: s.weekDay,
+                courseName: course.name,
+              }));
+              
               results.conflicts.push({
                 studentId: student.id,
                 studentName: student.name,
                 courseId: course.id,
                 courseName: course.name,
                 reason: '无法找到合适的时间安排',
+                type: 'time_conflict',
+                details: {
+                  studentAvailableTimes,
+                  conflictingSchedules,
+                  eligibleTeachers: eligibleTeachers.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    majorDirections: t.majorDirections,
+                  })),
+                },
               });
               results.failed++;
             }
