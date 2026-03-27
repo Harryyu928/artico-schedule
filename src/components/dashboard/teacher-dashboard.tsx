@@ -26,6 +26,8 @@ import {
   RefreshCw,
   ChevronRight,
   Play,
+  CalendarSync,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,10 +118,59 @@ export function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{
+    lastSyncedAt: string | null;
+    totalCourses: number;
+    syncedCourses: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchSyncStatus();
   }, []);
+
+  async function fetchSyncStatus() {
+    try {
+      const response = await fetch('/api/calendar-sync', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setSyncStatus(result.data);
+        }
+      }
+    } catch (err) {
+      console.error('获取同步状态失败:', err);
+    }
+  }
+
+  async function syncCalendar() {
+    try {
+      setSyncing(true);
+      const response = await fetch('/api/calendar-sync', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        // 显示成功提示
+        alert(`日历同步成功！\n同步课程: ${result.data?.coursesSynced || 0} 节`);
+        fetchSyncStatus();
+      } else {
+        alert(`同步失败: ${result.message || result.error}`);
+      }
+    } catch (err) {
+      console.error('日历同步失败:', err);
+      alert('日历同步失败，请稍后重试');
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function fetchDashboardData() {
     try {
@@ -211,16 +262,43 @@ export function TeacherDashboard() {
               )}
             </p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={fetchDashboardData}
-            className="text-white hover:bg-white/10 self-end sm:self-auto"
-          >
-            <RefreshCw className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">刷新</span>
-          </Button>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={syncCalendar}
+              disabled={syncing}
+              className="text-white hover:bg-white/10"
+              title="同步到飞书日历"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+              ) : (
+                <CalendarSync className="w-4 h-4 sm:mr-2" />
+              )}
+              <span className="hidden sm:inline">{syncing ? '同步中...' : '同步日历'}</span>
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={fetchDashboardData}
+              className="text-white hover:bg-white/10"
+            >
+              <RefreshCw className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">刷新</span>
+            </Button>
+          </div>
         </div>
+        {/* 同步状态提示 */}
+        {syncStatus && syncStatus.lastSyncedAt && (
+          <div className="mt-3 text-sm text-white/70 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            上次同步: {new Date(syncStatus.lastSyncedAt).toLocaleString('zh-CN')}
+            <span className="text-white/50">
+              ({syncStatus.syncedCourses}/{syncStatus.totalCourses} 课程已同步)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 核心指标卡片 */}
