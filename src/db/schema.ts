@@ -936,6 +936,35 @@ export const workflowTaskInstances = pgTable('workflow_task_instances', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// 工作流推进日志表
+export const workflowAdvancementLogs = pgTable('workflow_advancement_logs', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  instanceId: varchar('instance_id', { length: 36 }).notNull().references(() => workflowInstances.id, { onDelete: 'cascade' }),
+  
+  // 推进信息
+  fromStageId: varchar('from_stage_id', { length: 36 }).references(() => workflowStageDefinitions.id, { onDelete: 'set null' }),
+  toStageId: varchar('to_stage_id', { length: 36 }).references(() => workflowStageDefinitions.id, { onDelete: 'set null' }),
+  
+  // 推进类型
+  advancementType: varchar('advancement_type', { length: 20 }).notNull(), // auto, manual, rollback
+  trigger: varchar('trigger', { length: 50 }).notNull(), // task_completion, manual, scheduled_check, external
+  
+  // 原因和元数据
+  reason: text('reason'),
+  metadata: jsonb('metadata').$type<{
+    fromStageName?: string;
+    toStageName?: string;
+    operatorId?: string;
+    completionRate?: number;
+    affectedTasks?: string[];
+  }>(),
+  
+  // 操作者
+  operatorId: varchar('operator_id', { length: 36 }),
+  
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 // ==================== 结课审核相关枚举 ====================
 
 // 结课审核状态枚举
@@ -1090,6 +1119,8 @@ export type WorkflowInstance = typeof workflowInstances.$inferSelect;
 export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
 export type WorkflowTaskInstance = typeof workflowTaskInstances.$inferSelect;
 export type NewWorkflowTaskInstance = typeof workflowTaskInstances.$inferInsert;
+export type WorkflowAdvancementLog = typeof workflowAdvancementLogs.$inferSelect;
+export type NewWorkflowAdvancementLog = typeof workflowAdvancementLogs.$inferInsert;
 
 // 结课审核类型导出
 export type CourseSettlement = typeof courseSettlements.$inferSelect;
@@ -1271,6 +1302,10 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'leave_approved',         // 请假批准
   'leave_rejected',         // 请假拒绝
   'reminder',               // 提醒
+  'workflow_advanced',      // 工作流推进
+  'workflow_completed',     // 工作流完成
+  'task_assigned',          // 任务分配
+  'task_completed',         // 任务完成
 ] as const);
 
 // 通知渠道枚举

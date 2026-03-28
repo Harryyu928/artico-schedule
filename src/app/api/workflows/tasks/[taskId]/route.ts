@@ -12,6 +12,7 @@ import {
   type TaskAction 
 } from '@/lib/workflow-permissions';
 import { getCurrentUser } from '@/lib/auth-middleware';
+import { onTaskCompleted } from '@/lib/workflow-auto-advance';
 
 /**
  * GET /api/workflows/tasks/[taskId]
@@ -164,6 +165,12 @@ export async function PUT(
     // 触发模块联动（上课记录完成时更新进度）
     if (body.status === 'completed') {
       await triggerModuleLinkage(task);
+      
+      // 触发自动推进检查
+      const advancementResult = await onTaskCompleted(taskId, user.id);
+      if (advancementResult) {
+        console.log(`[TaskComplete] Workflow auto-advanced: ${advancementResult.previousStageName} -> ${advancementResult.newStageName}`);
+      }
     }
 
     // 重新查询更新后的任务
@@ -268,9 +275,15 @@ export async function PATCH(
     // 更新工作流实例的进度
     await updateWorkflowProgress(task.instanceId);
 
-    // 如果任务完成，触发模块联动
+    // 如果任务完成，触发模块联动和自动推进
     if (updateData.status === 'completed') {
       await triggerModuleLinkage(task);
+      
+      // 触发自动推进检查
+      const advancementResult = await onTaskCompleted(taskId, user.id);
+      if (advancementResult) {
+        console.log(`[TaskComplete] Workflow auto-advanced: ${advancementResult.previousStageName} -> ${advancementResult.newStageName}`);
+      }
     }
 
     // 重新查询更新后的任务
