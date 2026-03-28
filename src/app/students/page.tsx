@@ -691,7 +691,12 @@ export default function StudentsPage() {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                <span className="font-medium group-hover:text-orange-600 transition-colors">{student.name}</span>
+                                <button 
+                                  onClick={() => router.push(`/students/${student.id}`)}
+                                  className="font-medium group-hover:text-orange-600 transition-colors hover:underline text-left"
+                                >
+                                  {student.name}
+                                </button>
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-50 transition-colors">
