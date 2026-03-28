@@ -53,6 +53,7 @@ import {
   Line,
   Legend,
 } from 'recharts';
+import { QuickActions, QuickAction } from './quick-actions';
 
 type AdminDashboardData = {
   role: string;
@@ -901,22 +902,14 @@ export function AdminDashboard() {
       </Tabs>
 
       {/* 快捷操作 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">快捷操作</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            {data.quickActions.map((action) => (
-              <Link key={action.label} href={action.href}>
-                <Button variant="outline" className="w-full h-16 flex-col gap-1 border-2 border-orange-100 hover:border-orange-300 hover:bg-orange-50">
-                  <span className="text-sm font-medium">{action.label}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <QuickActions 
+        actions={data.quickActions.map((action, index) => ({
+          ...action,
+          color: ['orange', 'amber', 'blue', 'green', 'purple', 'red', 'pink', 'yellow'][index % 8] as QuickAction['color'],
+        })) as QuickAction[]}
+        columns={8}
+        title="快捷操作"
+      />
     </div>
   );
 }

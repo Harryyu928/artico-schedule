@@ -47,6 +47,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { QuickActions, QuickAction } from './quick-actions';
 
 type ConsultantDashboardData = {
   role: string;
@@ -569,22 +570,14 @@ export function ConsultantDashboard() {
       </Tabs>
 
       {/* 快捷操作 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">快捷操作</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickActions.map((action) => (
-              <Link key={action.label} href={action.href}>
-                <Button variant="outline" className="w-full h-14 flex-col gap-1 border-2 border-orange-100 hover:border-orange-300 hover:bg-orange-50">
-                  <span className="text-sm font-medium">{action.label}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <QuickActions 
+        actions={quickActions.map((action, index) => ({
+          ...action,
+          color: ['orange', 'amber', 'blue', 'green'][index % 4] as QuickAction['color'],
+        })) as QuickAction[]}
+        columns={4}
+        title="快捷操作"
+      />
     </div>
   );
 }
