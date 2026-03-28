@@ -34,7 +34,6 @@ import {
   CheckCircle,
   LucideIcon,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -68,7 +67,7 @@ export interface QuickAction {
   description?: string;
   badge?: string | number;
   badgeVariant?: 'default' | 'warning' | 'success' | 'danger';
-  color?: 'orange' | 'amber' | 'blue' | 'green' | 'purple' | 'red';
+  color?: 'orange' | 'amber' | 'blue' | 'green' | 'purple' | 'red' | 'pink' | 'cyan';
 }
 
 interface QuickActionsProps {
@@ -76,202 +75,165 @@ interface QuickActionsProps {
   columns?: 2 | 3 | 4 | 5 | 6 | 8;
   title?: string;
   showTitle?: boolean;
-  variant?: 'default' | 'compact' | 'expanded';
+  variant?: 'default' | 'compact' | 'expanded' | 'horizontal';
 }
 
 // 颜色配置
 const colorConfig = {
   orange: {
-    bg: 'bg-gradient-to-br from-orange-500 to-amber-500',
-    light: 'bg-orange-100/80',
+    gradient: 'from-orange-500 to-amber-500',
+    bg: 'bg-orange-500',
+    light: 'bg-orange-50',
     text: 'text-orange-600',
-    border: 'border-orange-300/50',
-    glow: 'shadow-orange-500/20',
+    ring: 'ring-orange-500/20',
   },
   amber: {
-    bg: 'bg-gradient-to-br from-amber-500 to-yellow-500',
-    light: 'bg-amber-100/80',
+    gradient: 'from-amber-500 to-yellow-500',
+    bg: 'bg-amber-500',
+    light: 'bg-amber-50',
     text: 'text-amber-600',
-    border: 'border-amber-300/50',
-    glow: 'shadow-amber-500/20',
+    ring: 'ring-amber-500/20',
   },
   blue: {
-    bg: 'bg-gradient-to-br from-blue-500 to-indigo-500',
-    light: 'bg-blue-100/80',
+    gradient: 'from-blue-500 to-indigo-500',
+    bg: 'bg-blue-500',
+    light: 'bg-blue-50',
     text: 'text-blue-600',
-    border: 'border-blue-300/50',
-    glow: 'shadow-blue-500/20',
+    ring: 'ring-blue-500/20',
   },
   green: {
-    bg: 'bg-gradient-to-br from-green-500 to-emerald-500',
-    light: 'bg-green-100/80',
+    gradient: 'from-green-500 to-emerald-500',
+    bg: 'bg-green-500',
+    light: 'bg-green-50',
     text: 'text-green-600',
-    border: 'border-green-300/50',
-    glow: 'shadow-green-500/20',
+    ring: 'ring-green-500/20',
   },
   purple: {
-    bg: 'bg-gradient-to-br from-purple-500 to-pink-500',
-    light: 'bg-purple-100/80',
+    gradient: 'from-purple-500 to-pink-500',
+    bg: 'bg-purple-500',
+    light: 'bg-purple-50',
     text: 'text-purple-600',
-    border: 'border-purple-300/50',
-    glow: 'shadow-purple-500/20',
+    ring: 'ring-purple-500/20',
   },
   red: {
-    bg: 'bg-gradient-to-br from-red-500 to-rose-500',
-    light: 'bg-red-100/80',
+    gradient: 'from-red-500 to-rose-500',
+    bg: 'bg-red-500',
+    light: 'bg-red-50',
     text: 'text-red-600',
-    border: 'border-red-300/50',
-    glow: 'shadow-red-500/20',
+    ring: 'ring-red-500/20',
+  },
+  pink: {
+    gradient: 'from-pink-500 to-rose-400',
+    bg: 'bg-pink-500',
+    light: 'bg-pink-50',
+    text: 'text-pink-600',
+    ring: 'ring-pink-500/20',
+  },
+  cyan: {
+    gradient: 'from-cyan-500 to-teal-500',
+    bg: 'bg-cyan-500',
+    light: 'bg-cyan-50',
+    text: 'text-cyan-600',
+    ring: 'ring-cyan-500/20',
   },
 };
 
 // 徽章配置
 const badgeConfig = {
-  default: 'bg-gray-100 text-gray-700 border-gray-200',
-  warning: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  success: 'bg-green-100 text-green-700 border-green-300',
-  danger: 'bg-red-100 text-red-700 border-red-300',
+  default: 'bg-gray-100 text-gray-700',
+  warning: 'bg-yellow-100 text-yellow-700',
+  success: 'bg-green-100 text-green-700',
+  danger: 'bg-red-100 text-red-700',
 };
 
 /**
- * 单个快捷操作卡片
+ * 单个快捷操作卡片 - 现代设计
  */
-function QuickActionCard({ 
-  action, 
-  variant = 'default' 
-}: { 
-  action: QuickAction;
-  variant?: 'default' | 'compact' | 'expanded';
-}) {
+function QuickActionCard({ action }: { action: QuickAction }) {
   const Icon = iconMap[action.icon] || Users;
   const color = action.color || 'orange';
   const config = colorConfig[color];
-  
-  const isExpanded = variant === 'expanded';
-  const isCompact = variant === 'compact';
 
   return (
-    <Link href={action.href} className="group block h-full">
-      <Card 
+    <Link href={action.href} className="group block">
+      <div 
         className={cn(
-          // 基础样式
-          "relative overflow-hidden transition-all duration-300 cursor-pointer h-full",
-          "border-2 border-white/50",
-          // 毛玻璃效果
-          "bg-white/70 backdrop-blur-md",
+          // 基础布局
+          "relative flex items-center gap-3 p-3 rounded-xl",
+          // 毛玻璃背景
+          "bg-white/70 backdrop-blur-sm",
+          "border border-white/80",
+          // 阴影
+          "shadow-sm",
+          // 过渡动画
+          "transition-all duration-300 ease-out",
           // hover效果
-          "hover:bg-white/90 hover:border-orange-300/70",
-          "hover:shadow-xl hover:shadow-orange-500/10",
-          "hover:-translate-y-1",
-          // 动画
-          "group-hover:scale-[1.02]",
+          "hover:bg-white hover:shadow-lg",
+          "hover:border-orange-200",
+          "hover:-translate-y-0.5",
+          // 焦点状态
+          "focus-visible:ring-2 focus-visible:ring-orange-500",
         )}
       >
-        {/* 顶部渐变装饰条 */}
+        {/* 图标 */}
         <div 
           className={cn(
-            "absolute top-0 left-0 right-0 h-1 opacity-80",
-            "transition-all duration-300",
-            "group-hover:h-1.5",
-            config.bg
-          )} 
-        />
-        
-        {/* 光晕效果 */}
-        <div 
-          className={cn(
-            "absolute -top-10 -right-10 w-20 h-20 rounded-full opacity-0",
-            "transition-opacity duration-300",
-            "group-hover:opacity-30 blur-2xl",
-            config.light
-          )} 
-        />
-
-        <CardContent 
-          className={cn(
-            "relative p-4 flex flex-col items-center justify-center text-center",
-            isExpanded && "p-6",
-            isCompact && "p-3"
+            "flex-shrink-0 w-10 h-10 rounded-lg",
+            "bg-gradient-to-br",
+            config.gradient,
+            "flex items-center justify-center",
+            "shadow-sm",
+            "transition-transform duration-300",
+            "group-hover:scale-110 group-hover:rotate-3"
           )}
         >
-          {/* 图标容器 */}
-          <div 
-            className={cn(
-              "relative rounded-xl flex items-center justify-center mb-3",
-              "transition-all duration-300",
-              "shadow-lg",
-              config.bg,
-              config.glow,
-              isExpanded ? "w-14 h-14 group-hover:w-16 group-hover:h-16" : "w-11 h-11 group-hover:w-12 group-hover:h-12",
-              isCompact && "w-9 h-9 mb-2"
-            )}
-          >
-            <Icon 
-              className={cn(
-                "text-white transition-transform duration-300",
-                "group-hover:scale-110 group-hover:rotate-3",
-                isExpanded ? "w-7 h-7" : "w-5 h-5",
-                isCompact && "w-4 h-4"
-              )} 
-            />
-            
-            {/* 脉冲动画（仅在hover时） */}
-            <div 
-              className={cn(
-                "absolute inset-0 rounded-xl opacity-0",
-                "group-hover:animate-ping",
-                config.bg
-              )} 
-              style={{ animationDuration: '1.5s' }}
-            />
-          </div>
+          <Icon className="w-5 h-5 text-white" />
+        </div>
 
-          {/* 标签 */}
-          <div 
-            className={cn(
-              "font-semibold transition-colors duration-200",
-              "text-gray-800 group-hover:text-orange-700",
-              isExpanded ? "text-base" : "text-sm",
-              isCompact && "text-xs"
+        {/* 内容 */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span 
+              className={cn(
+                "font-medium text-sm",
+                "text-gray-800",
+                "group-hover:text-orange-600",
+                "transition-colors"
+              )}
+            >
+              {action.label}
+            </span>
+            {action.badge !== undefined && (
+              <span 
+                className={cn(
+                  "inline-flex items-center justify-center",
+                  "min-w-[18px] h-[18px] px-1",
+                  "text-[10px] font-semibold rounded-full",
+                  badgeConfig[action.badgeVariant || 'default']
+                )}
+              >
+                {action.badge}
+              </span>
             )}
-          >
-            {action.label}
           </div>
-
-          {/* 描述（仅expanded模式） */}
-          {isExpanded && action.description && (
-            <p className="mt-1 text-xs text-gray-500 line-clamp-2">
+          {action.description && (
+            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
               {action.description}
             </p>
           )}
+        </div>
 
-          {/* 徽章 */}
-          {action.badge !== undefined && (
-            <Badge 
-              variant="outline"
-              className={cn(
-                "mt-2 text-[10px] px-2 py-0.5 font-medium",
-                "transition-all duration-200",
-                "group-hover:scale-105",
-                badgeConfig[action.badgeVariant || 'default']
-              )}
-            >
-              {action.badge}
-            </Badge>
+        {/* 箭头 */}
+        <ArrowRight 
+          className={cn(
+            "w-4 h-4 flex-shrink-0",
+            "text-gray-300",
+            "transition-all duration-300",
+            "group-hover:text-orange-500",
+            "group-hover:translate-x-0.5"
           )}
-
-          {/* 箭头指示器（hover时显示） */}
-          <ArrowRight 
-            className={cn(
-              "absolute right-3 top-1/2 -translate-y-1/2",
-              "w-4 h-4 text-orange-400",
-              "opacity-0 translate-x-2",
-              "transition-all duration-300",
-              "group-hover:opacity-100 group-hover:translate-x-0"
-            )} 
-          />
-        </CardContent>
-      </Card>
+        />
+      </div>
     </Link>
   );
 }
@@ -286,109 +248,130 @@ export function QuickActions({
   showTitle = true,
   variant = 'default'
 }: QuickActionsProps) {
-  const gridCols = {
-    2: 'grid-cols-2',
-    3: 'grid-cols-2 md:grid-cols-3',
-    4: 'grid-cols-2 md:grid-cols-4',
-    5: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
-    6: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
-    8: 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8',
+  // 根据列数计算网格类名
+  const getGridClass = (cols: number) => {
+    const gridMap: Record<number, string> = {
+      2: 'sm:grid-cols-2',
+      3: 'sm:grid-cols-2 lg:grid-cols-3',
+      4: 'sm:grid-cols-2 lg:grid-cols-4',
+      5: 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
+      6: 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
+      8: 'sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8',
+    };
+    return gridMap[cols] || gridMap[4];
   };
 
   return (
-    <Card 
+    <div 
       className={cn(
-        "relative overflow-hidden",
-        // 毛玻璃效果背景
-        "bg-gradient-to-br from-white/80 via-orange-50/50 to-amber-50/30",
-        "backdrop-blur-lg",
-        "border border-orange-200/50",
+        "relative rounded-2xl overflow-hidden",
+        // 毛玻璃背景
+        "bg-gradient-to-br from-orange-50/80 via-white/90 to-amber-50/60",
+        "backdrop-blur-xl",
+        "border border-orange-100/50",
         "shadow-xl shadow-orange-500/5"
       )}
     >
       {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* 渐变光晕 */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-400/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-amber-400/10 rounded-full blur-3xl" />
-        
-        {/* 网格背景 */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, #f97316 1px, transparent 1px),
-              linear-gradient(to bottom, #f97316 1px, transparent 1px)
-            `,
-            backgroundSize: '24px 24px'
-          }}
-        />
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-orange-300/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-amber-300/20 rounded-full blur-3xl" />
       </div>
 
+      {/* 标题栏 */}
       {showTitle && (
-        <div className="relative px-6 py-4 border-b border-orange-100/50">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md shadow-orange-500/20">
+        <div className="relative px-5 py-4 border-b border-orange-100/50 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div 
+              className={cn(
+                "w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500",
+                "flex items-center justify-center",
+                "shadow-lg shadow-orange-500/30"
+              )}
+            >
               <Zap className="w-4 h-4 text-white" />
             </div>
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            <h3 className="text-base font-semibold text-gray-800">
               {title}
             </h3>
           </div>
+          <Badge 
+            variant="outline" 
+            className="border-orange-200 text-orange-600 bg-orange-50/50"
+          >
+            {actions.length} 项
+          </Badge>
         </div>
       )}
 
+      {/* 操作网格 */}
       <div className="relative p-4">
-        <div className={cn("grid gap-3", gridCols[columns])}>
+        <div className={cn(
+          "grid grid-cols-1 gap-2.5",
+          getGridClass(columns)
+        )}>
           {actions.map((action, index) => (
             <QuickActionCard 
-              key={action.label} 
-              action={action} 
-              variant={variant}
+              key={`${action.label}-${index}`}
+              action={action}
             />
           ))}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
 /**
- * 紧凑型快捷操作栏（用于顶部导航等位置）
+ * 紧凑型快捷操作栏（横向滚动）
  */
 export function QuickActionsBar({ actions }: { actions: QuickAction[] }) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-2">
-      {actions.map((action) => {
-        const Icon = iconMap[action.icon] || Users;
-        return (
-          <Link 
-            key={action.label} 
-            href={action.href}
-            className="group flex items-center gap-2 px-3 py-2 rounded-lg
-                       bg-white/60 backdrop-blur-sm border border-white/50
-                       hover:bg-orange-50/80 hover:border-orange-200
-                       transition-all duration-200 whitespace-nowrap
-                       shadow-sm hover:shadow-md"
-          >
-            <Icon className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
-              {action.label}
-            </span>
-            {action.badge !== undefined && (
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "text-[10px] px-1.5 py-0",
-                  badgeConfig[action.badgeVariant || 'default']
-                )}
-              >
-                {action.badge}
-              </Badge>
-            )}
-          </Link>
-        );
-      })}
+    <div className="relative">
+      {/* 左侧渐变遮罩 */}
+      <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+      {/* 右侧渐变遮罩 */}
+      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+      
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 px-2 -mx-2 scrollbar-hide">
+        {actions.map((action) => {
+          const Icon = iconMap[action.icon] || Users;
+          return (
+            <Link 
+              key={action.label} 
+              href={action.href}
+              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl
+                         bg-white/80 backdrop-blur-sm border border-orange-100
+                         hover:bg-orange-50 hover:border-orange-200
+                         transition-all duration-200 whitespace-nowrap
+                         shadow-sm hover:shadow-md flex-shrink-0"
+            >
+              <div className={cn(
+                "w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500",
+                "flex items-center justify-center",
+                "transition-transform group-hover:scale-110"
+              )}>
+                <Icon className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
+                {action.label}
+              </span>
+              {action.badge !== undefined && (
+                <span 
+                  className={cn(
+                    "inline-flex items-center justify-center",
+                    "min-w-[16px] h-4 px-1",
+                    "text-[10px] font-semibold rounded-full",
+                    badgeConfig[action.badgeVariant || 'default']
+                  )}
+                >
+                  {action.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -406,20 +389,21 @@ export function FloatingQuickAction({ action }: { action: QuickAction }) {
       <button
         className={cn(
           "group relative flex items-center justify-center",
-          "w-14 h-14 rounded-2xl",
+          "w-12 h-12 rounded-xl",
+          "bg-gradient-to-br",
+          config.gradient,
           "shadow-lg shadow-orange-500/25",
           "transition-all duration-300",
-          "hover:scale-110 hover:shadow-xl hover:shadow-orange-500/30",
-          config.bg
+          "hover:scale-110 hover:shadow-xl hover:shadow-orange-500/30"
         )}
       >
-        <Icon className="w-6 h-6 text-white transition-transform group-hover:scale-110" />
+        <Icon className="w-5 h-5 text-white transition-transform group-hover:scale-110" />
         
         {/* Tooltip */}
         <span 
           className={cn(
             "absolute -bottom-8 left-1/2 -translate-x-1/2",
-            "px-2 py-1 rounded text-xs font-medium",
+            "px-2 py-1 rounded-lg text-xs font-medium",
             "bg-gray-900 text-white opacity-0",
             "group-hover:opacity-100 transition-opacity",
             "whitespace-nowrap pointer-events-none"

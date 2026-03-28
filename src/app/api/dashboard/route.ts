@@ -450,14 +450,14 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
       ].slice(0, 8),
       
       quickActions: [
-        { label: '学生管理', href: '/students', icon: 'Users' },
-        { label: '导师管理', href: '/teachers', icon: 'UserCheck' },
-        { label: '课程管理', href: '/courses', icon: 'BookOpen' },
-        { label: '选课指导课', href: '/consultations', icon: 'Calendar' },
-        { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
-        { label: '排课管理', href: '/schedules', icon: 'Calendar' },
-        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock' },
-        { label: '数据导入', href: '/import', icon: 'Upload' },
+        { label: '学生管理', href: '/students', icon: 'Users', description: '管理学生信息与档案', color: 'orange' },
+        { label: '导师管理', href: '/teachers', icon: 'UserCheck', description: '管理导师信息与权限', color: 'blue' },
+        { label: '课程管理', href: '/courses', icon: 'BookOpen', description: '管理课程与教学内容', color: 'green' },
+        { label: '选课指导课', href: '/consultations', icon: 'Calendar', description: '安排选课指导预约', color: 'purple' },
+        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '处理学生选课单', color: 'amber' },
+        { label: '排课管理', href: '/schedules', icon: 'Calendar', description: '查看与管理排课', color: 'pink' },
+        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock', description: '管理可用时间表', color: 'cyan' },
+        { label: '数据导入', href: '/import', icon: 'Upload', description: '批量导入数据', color: 'red' },
       ],
     },
   });
@@ -662,11 +662,10 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
       ],
       
       quickActions: [
-        { label: '我的学生', href: '/students?consultantId=' + user.id, icon: 'Users' },
-        { label: '选课指导课', href: '/consultations', icon: 'Calendar' },
-        { label: '选课单管理', href: '/selection-forms', icon: 'FileText' },
-        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock' },
-        { label: '排课管理', href: '/schedules', icon: 'Calendar' },
+        { label: '我的学生', href: '/students?consultantId=' + user.id, icon: 'Users', description: '管理签约学生', color: 'orange' },
+        { label: '选课指导课', href: '/consultations', icon: 'Calendar', description: '安排指导预约', color: 'blue' },
+        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '处理选课单', color: 'purple' },
+        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock', description: '学生时间表', color: 'green' },
       ],
     },
   });
@@ -860,10 +859,10 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
       })),
       
       quickActions: [
-        { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock' },
-        { label: '我的学生', href: '/teacher/students', icon: 'Users' },
-        { label: '课程表', href: '/teacher/schedule', icon: 'Calendar' },
-        { label: '上课记录', href: '/teacher/records', icon: 'FileText' },
+        { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock', description: '设置可用时间', color: 'orange' },
+        { label: '我的学生', href: '/teacher/students', icon: 'Users', description: '查看学生进度', color: 'blue' },
+        { label: '课程表', href: '/teacher/schedule', icon: 'Calendar', description: '查看排课安排', color: 'green' },
+        { label: '上课记录', href: '/teacher/records', icon: 'FileText', description: '填写上课记录', color: 'purple' },
       ],
     },
   });
@@ -968,10 +967,10 @@ async function getStudentDashboard(user: typeof users.$inferSelect) {
       })),
       
       quickActions: [
-        { label: '我的时间表', href: '/time-table/student', icon: 'Clock' },
-        { label: '我的课程', href: '/student/courses', icon: 'BookOpen' },
-        { label: '课程表', href: '/student/schedule', icon: 'Calendar' },
-        { label: '上课记录', href: '/student/records', icon: 'FileText' },
+        { label: '我的时间表', href: '/time-table/student', icon: 'Clock', description: '填写可用时间', color: 'orange' },
+        { label: '我的课程', href: '/student/courses', icon: 'BookOpen', description: '查看课程进度', color: 'blue' },
+        { label: '课程表', href: '/student/schedule', icon: 'Calendar', description: '查看排课安排', color: 'green' },
+        { label: '上课记录', href: '/student/records', icon: 'FileText', description: '查看上课历史', color: 'purple' },
       ],
     },
   });

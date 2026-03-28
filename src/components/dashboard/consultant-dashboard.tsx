@@ -571,10 +571,7 @@ export function ConsultantDashboard() {
 
       {/* 快捷操作 */}
       <QuickActions 
-        actions={quickActions.map((action, index) => ({
-          ...action,
-          color: ['orange', 'amber', 'blue', 'green'][index % 4] as QuickAction['color'],
-        })) as QuickAction[]}
+        actions={quickActions as QuickAction[]}
         columns={4}
         title="快捷操作"
       />

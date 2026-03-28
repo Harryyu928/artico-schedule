@@ -903,10 +903,7 @@ export function AdminDashboard() {
 
       {/* 快捷操作 */}
       <QuickActions 
-        actions={data.quickActions.map((action, index) => ({
-          ...action,
-          color: ['orange', 'amber', 'blue', 'green', 'purple', 'red', 'pink', 'yellow'][index % 8] as QuickAction['color'],
-        })) as QuickAction[]}
+        actions={data.quickActions as QuickAction[]}
         columns={8}
         title="快捷操作"
       />
