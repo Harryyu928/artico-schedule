@@ -116,14 +116,26 @@ type TimeFilter = 'all' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek' | 'this
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 // 时间筛选选项配置
-const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string; icon: React.ReactNode }[] = [
-  { value: 'all', label: '全部', icon: <CalendarRange className="w-4 h-4" /> },
-  { value: 'today', label: '今日', icon: <Sun className="w-4 h-4" /> },
-  { value: 'tomorrow', label: '明日', icon: <Sunrise className="w-4 h-4" /> },
-  { value: 'thisWeek', label: '本周', icon: <CalendarDays className="w-4 h-4" /> },
-  { value: 'nextWeek', label: '下周', icon: <Calendar className="w-4 h-4" /> },
-  { value: 'thisMonth', label: '本月', icon: <CalendarRange className="w-4 h-4" /> },
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string; iconType: string }[] = [
+  { value: 'all', label: '全部', iconType: 'calendar-range' },
+  { value: 'today', label: '今日', iconType: 'sun' },
+  { value: 'tomorrow', label: '明日', iconType: 'sunrise' },
+  { value: 'thisWeek', label: '本周', iconType: 'calendar-days' },
+  { value: 'nextWeek', label: '下周', iconType: 'calendar' },
+  { value: 'thisMonth', label: '本月', iconType: 'calendar-range' },
 ];
+
+// 获取图标组件
+function getTimeFilterIcon(iconType: string) {
+  switch (iconType) {
+    case 'sun': return <Sun className="w-4 h-4" />;
+    case 'sunrise': return <Sunrise className="w-4 h-4" />;
+    case 'calendar-days': return <CalendarDays className="w-4 h-4" />;
+    case 'calendar': return <Calendar className="w-4 h-4" />;
+    case 'calendar-range':
+    default: return <CalendarRange className="w-4 h-4" />;
+  }
+}
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -810,7 +822,7 @@ export default function SchedulesPage() {
                       }
                     `}
                   >
-                    {option.icon}
+                    {getTimeFilterIcon(option.iconType)}
                     <span className="ml-1">{option.label}</span>
                   </Button>
                 </motion.div>
