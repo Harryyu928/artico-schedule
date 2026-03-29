@@ -132,15 +132,21 @@ export default function RoleDashboard() {
     }
   }, [currentRole, userLoading]);
 
-  async function fetchDashboardData() {
+  async function fetchDashboardData(retryCount = 0) {
     try {
       // 先同步后端 cookie
-      await fetch('/api/auth', {
+      const authResponse = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'login', role: currentRole }),
         credentials: 'include',
       });
+      
+      // 如果登录失败，重试一次
+      if (!authResponse.ok && retryCount < 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return fetchDashboardData(retryCount + 1);
+      }
       
       // 然后获取仪表盘数据
       const response = await fetch('/api/dashboard', {
@@ -152,11 +158,17 @@ export default function RoleDashboard() {
           setLoading(false);
           return;
         }
+        // 尝试重试一次
+        if (retryCount < 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return fetchDashboardData(retryCount + 1);
+        }
         throw new Error('获取数据失败');
       }
       const result = await response.json();
       if (result.success) {
         setData(result.data);
+        setError(null);
       }
     } catch (err) {
       console.error('获取仪表盘数据失败:', err);

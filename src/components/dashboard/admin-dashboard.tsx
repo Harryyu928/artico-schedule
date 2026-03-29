@@ -145,34 +145,56 @@ export function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  async function fetchDashboardData() {
+  async function fetchDashboardData(retryCount = 0) {
     try {
       setLoading(true);
       
       // 先同步后端 cookie（确保当前角色正确）
       const currentRole = localStorage.getItem('user_role');
       if (currentRole) {
-        await fetch('/api/auth', {
+        const authResponse = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'login', role: currentRole }),
           credentials: 'include',
         });
+        
+        // 如果登录失败，重试一次
+        if (!authResponse.ok && retryCount < 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return fetchDashboardData(retryCount + 1);
+        }
       }
       
       const response = await fetch('/api/dashboard', {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('获取数据失败');
+      
+      if (response.status === 401) {
+        // 未登录，显示角色选择提示
+        setError('请先选择角色');
+        return;
+      }
+      
+      if (!response.ok) {
+        // 尝试重试一次
+        if (retryCount < 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return fetchDashboardData(retryCount + 1);
+        }
+        throw new Error('获取数据失败');
+      }
+      
       const result = await response.json();
       if (result.success) {
         setData(result.data);
+        setError(null);
       } else {
         setError(result.error || '获取数据失败');
       }
     } catch (err) {
       console.error('获取仪表盘数据失败:', err);
-      setError('加载数据失败');
+      setError('加载数据失败，请刷新页面重试');
     } finally {
       setLoading(false);
     }
