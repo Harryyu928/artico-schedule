@@ -453,11 +453,11 @@ async function getAdminDashboard(user: typeof users.$inferSelect) {
         { label: '学生管理', href: '/students', icon: 'Users', description: '管理学生信息与档案', color: 'orange' },
         { label: '导师管理', href: '/teachers', icon: 'UserCheck', description: '管理导师信息与权限', color: 'blue' },
         { label: '课程管理', href: '/courses', icon: 'BookOpen', description: '管理课程与教学内容', color: 'green' },
-        { label: '选课指导课', href: '/consultations', icon: 'Calendar', description: '安排选课指导预约', color: 'purple' },
-        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '处理学生选课单', color: 'amber' },
-        { label: '排课管理', href: '/schedules', icon: 'Calendar', description: '查看与管理排课', color: 'pink' },
+        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '选课单生成、签字、归档', color: 'purple' },
+        { label: '排课管理', href: '/schedules', icon: 'Calendar', description: '查看与管理排课', color: 'amber' },
         { label: '时间表管理', href: '/time-table/manage', icon: 'Clock', description: '管理可用时间表', color: 'cyan' },
-        { label: '数据导入', href: '/import', icon: 'Upload', description: '批量导入数据', color: 'red' },
+        { label: '数据导入', href: '/import', icon: 'Upload', description: '批量导入数据', color: 'pink' },
+        { label: '系统设置', href: '/settings', icon: 'Settings', description: '系统配置与参数', color: 'red' },
       ],
     },
   });
@@ -663,9 +663,9 @@ async function getConsultantDashboard(user: typeof users.$inferSelect) {
       
       quickActions: [
         { label: '我的学生', href: '/students?consultantId=' + user.id, icon: 'Users', description: '管理签约学生', color: 'orange' },
-        { label: '选课指导课', href: '/consultations', icon: 'Calendar', description: '安排指导预约', color: 'blue' },
-        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '处理选课单', color: 'purple' },
-        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock', description: '学生时间表', color: 'green' },
+        { label: '选课单管理', href: '/selection-forms', icon: 'FileText', description: '选课单生成与签字归档', color: 'purple' },
+        { label: '排课管理', href: '/schedules', icon: 'Calendar', description: '查看学生排课', color: 'blue' },
+        { label: '时间表管理', href: '/time-table/manage', icon: 'Clock', description: '学生可用时间', color: 'green' },
       ],
     },
   });
@@ -859,10 +859,10 @@ async function getTeacherDashboard(user: typeof users.$inferSelect) {
       })),
       
       quickActions: [
-        { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock', description: '设置可用时间', color: 'orange' },
+        { label: '我的时间表', href: '/time-table/teacher', icon: 'Clock', description: '设置可用授课时间', color: 'orange' },
         { label: '我的学生', href: '/teacher/students', icon: 'Users', description: '查看学生进度', color: 'blue' },
         { label: '课程表', href: '/teacher/schedule', icon: 'Calendar', description: '查看排课安排', color: 'green' },
-        { label: '上课记录', href: '/teacher/records', icon: 'FileText', description: '填写上课记录', color: 'purple' },
+        { label: '上课记录', href: '/teacher/records', icon: 'FileText', description: '填写记录与选课单', color: 'purple' },
       ],
     },
   });

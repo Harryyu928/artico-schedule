@@ -83,8 +83,7 @@ const navigationGroups: NavGroup[] = [
   {
     title: '选课规划',
     items: [
-      { name: '选课指导课', href: '/consultations', icon: Calendar, description: '规划顾问选课指导预约和管理' },
-      { name: '选课单管理', href: '/selection-forms', icon: FileText, description: '创建和管理选课单' },
+      { name: '选课单管理', href: '/selection-forms', icon: FileText, description: '选课单生成、签字、归档' },
     ],
     minRole: '规划顾问',
   },
