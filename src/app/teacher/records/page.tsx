@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,7 @@ import {
   XCircle,
   Filter,
   Download,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -98,7 +99,7 @@ interface PaginationInfo {
   totalPages: number;
 }
 
-export default function TeacherRecordsPage() {
+function TeacherRecordsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -559,5 +560,17 @@ export default function TeacherRecordsPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function TeacherRecordsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    }>
+      <TeacherRecordsContent />
+    </Suspense>
   );
 }

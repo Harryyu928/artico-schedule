@@ -213,7 +213,7 @@ export default function RoleDashboard() {
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600">{error}</p>
-          <Button onClick={fetchDashboardData} className="mt-4">
+          <Button onClick={() => fetchDashboardData()} className="mt-4">
             重试
           </Button>
         </div>

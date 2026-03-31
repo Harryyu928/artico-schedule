@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ interface ScheduleStats {
   pendingRecords: number;
 }
 
-export default function TeacherSchedulePage() {
+function TeacherScheduleContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -465,5 +465,17 @@ export default function TeacherSchedulePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TeacherSchedulePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    }>
+      <TeacherScheduleContent />
+    </Suspense>
   );
 }

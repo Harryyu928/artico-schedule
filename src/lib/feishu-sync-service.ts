@@ -158,7 +158,7 @@ export async function syncStudentsFromFeishu(): Promise<{ total: number; synced:
         consumedHours: Number(fields['已消耗课时']) || 0,
         remainingHours: Number(fields['剩余课时']) || 0,
         studentStatus: mapStudentStatus(fields['学员状态'] as string) as any,
-        studentCategory: (fields['学员类别'] as string) || null,
+        studentCategory: mapStudentCategory(fields['学员类别'] as string),
         feishuRecordId: record.record_id,
         updatedAt: new Date(),
       };
@@ -532,6 +532,18 @@ function mapStudentStatus(status: string): '在读' | '停课' | '毕业' | '退
   if (status.includes('毕业')) return '毕业';
   if (status.includes('退学')) return '退学';
   return '在读';
+}
+
+function mapStudentCategory(category: string | null): 'VIP 3' | 'VIP 5' | 'VIP 6' | 'VIP 7' | 'VIP 8' | 'VIP 10' | 'VIP 12' | 'FV-Portfolio作品集（限课时）' | 'FV-Portfolio作品集（不限课时）' | 'FV-Portfolio作品集+文书（限课时）' | 'FV-Portfolio作品集+文书（不限课时）' | 'FV-定制课程' | '单项目' | '项目代做' | '其他' | null {
+  if (!category) return null;
+  const validCategories = [
+    'VIP 3', 'VIP 5', 'VIP 6', 'VIP 7', 'VIP 8', 'VIP 10', 'VIP 12',
+    'FV-Portfolio作品集（限课时）', 'FV-Portfolio作品集（不限课时）',
+    'FV-Portfolio作品集+文书（限课时）', 'FV-Portfolio作品集+文书（不限课时）',
+    'FV-定制课程', '单项目', '项目代做', '其他'
+  ] as const;
+  const found = validCategories.find(v => category.includes(v));
+  return found || null;
 }
 
 function mapScheduleStatus(status: string): '待确认' | '已确认' | '已完成' | '取消' {

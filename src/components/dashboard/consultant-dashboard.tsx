@@ -186,7 +186,7 @@ export function ConsultantDashboard() {
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600">{error || '加载数据失败'}</p>
-          <Button onClick={fetchDashboardData} className="mt-4 bg-orange-500 hover:bg-orange-600">
+          <Button onClick={() => fetchDashboardData()} className="mt-4 bg-orange-500 hover:bg-orange-600">
             重试
           </Button>
         </div>
@@ -221,7 +221,7 @@ export function ConsultantDashboard() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={fetchDashboardData}
+            onClick={() => fetchDashboardData()}
             className="text-white hover:bg-white/10 self-end sm:self-auto"
           >
             <RefreshCw className="w-4 h-4 sm:mr-2" />
