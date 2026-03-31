@@ -7,8 +7,15 @@
  * - 消息通知：发送课程提醒、审批通知
  * 
  * 启用条件：
- * 设置环境变量 FEISHU_ENABLED=true 并配置飞书应用凭证
+ * 默认已内置飞书配置，无需额外配置即可使用
  */
+
+// 内置默认配置
+const DEFAULT_FEISHU_CONFIG = {
+  appId: 'cli_a94e5f1e32bb5cd1',
+  appSecret: 'aeEqF674K1TTwi3MlS7B3dWClBUlp77j',
+  appToken: 'HbztbPxc1a8wT8s47FIcgM9annc',
+};
 
 // 飞书配置接口
 export interface FeishuConfig {
@@ -18,13 +25,13 @@ export interface FeishuConfig {
   appToken?: string; // 多维表格 App Token
 }
 
-// 从环境变量获取配置
+// 从环境变量获取配置（优先使用环境变量，否则使用内置默认值）
 export function getFeishuConfig(): FeishuConfig {
   return {
-    enabled: process.env.FEISHU_ENABLED === 'true',
-    appId: process.env.FEISHU_APP_ID,
-    appSecret: process.env.FEISHU_APP_SECRET,
-    appToken: process.env.FEISHU_APP_TOKEN,
+    enabled: process.env.FEISHU_ENABLED !== 'false', // 默认启用
+    appId: process.env.FEISHU_APP_ID || DEFAULT_FEISHU_CONFIG.appId,
+    appSecret: process.env.FEISHU_APP_SECRET || DEFAULT_FEISHU_CONFIG.appSecret,
+    appToken: process.env.FEISHU_APP_TOKEN || DEFAULT_FEISHU_CONFIG.appToken,
   };
 }
 

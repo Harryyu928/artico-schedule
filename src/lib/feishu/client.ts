@@ -536,18 +536,26 @@ export class FeishuClient {
 // 单例实例
 let feishuClient: FeishuClient | null = null;
 
+// 内置默认配置（用于部署时无需手动配置）
+const DEFAULT_FEISHU_CONFIG = {
+  appId: 'cli_a94e5f1e32bb5cd1',
+  appSecret: 'aeEqF674K1TTwi3MlS7B3dWClBUlp77j',
+  appToken: 'HbztbPxc1a8wT8s47FIcgM9annc',
+};
+
 /**
  * 获取飞书客户端实例
  */
 export function getFeishuClient(): FeishuClient | null {
-  const enabled = process.env.FEISHU_ENABLED === 'true';
+  const enabled = process.env.FEISHU_ENABLED !== 'false'; // 默认启用
   
   if (!enabled) {
     return null;
   }
 
-  const appId = process.env.FEISHU_APP_ID;
-  const appSecret = process.env.FEISHU_APP_SECRET;
+  // 优先使用环境变量，否则使用内置默认值
+  const appId = process.env.FEISHU_APP_ID || DEFAULT_FEISHU_CONFIG.appId;
+  const appSecret = process.env.FEISHU_APP_SECRET || DEFAULT_FEISHU_CONFIG.appSecret;
 
   if (!appId || !appSecret) {
     console.warn('[Feishu] 飞书配置不完整，请检查 FEISHU_APP_ID 和 FEISHU_APP_SECRET');
@@ -558,7 +566,7 @@ export function getFeishuClient(): FeishuClient | null {
     feishuClient = new FeishuClient({
       appId,
       appSecret,
-      appToken: process.env.FEISHU_APP_TOKEN,
+      appToken: process.env.FEISHU_APP_TOKEN || DEFAULT_FEISHU_CONFIG.appToken,
       encryptKey: process.env.FEISHU_ENCRYPT_KEY,
       verificationToken: process.env.FEISHU_VERIFICATION_TOKEN,
       calendarId: process.env.FEISHU_CALENDAR_ID,

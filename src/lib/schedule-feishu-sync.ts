@@ -8,11 +8,18 @@ import { scheduleResults, students, teachers, courses } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getBitableService } from './feishu-bitable-service';
 
-// 飞书配置
+// 内置默认配置
+const DEFAULT_FEISHU_CONFIG = {
+  appId: 'cli_a94e5f1e32bb5cd1',
+  appSecret: 'aeEqF674K1TTwi3MlS7B3dWClBUlp77j',
+  appToken: 'HbztbPxc1a8wT8s47FIcgM9annc',
+};
+
+// 飞书配置（优先使用环境变量，否则使用内置默认值）
 const FEISHU_CONFIG = {
-  appId: process.env.FEISHU_APP_ID || '',
-  appSecret: process.env.FEISHU_APP_SECRET || '',
-  appToken: process.env.FEISHU_APP_TOKEN || '',
+  appId: process.env.FEISHU_APP_ID || DEFAULT_FEISHU_CONFIG.appId,
+  appSecret: process.env.FEISHU_APP_SECRET || DEFAULT_FEISHU_CONFIG.appSecret,
+  appToken: process.env.FEISHU_APP_TOKEN || DEFAULT_FEISHU_CONFIG.appToken,
   scheduleTableId: process.env.FEISHU_TABLE_SCHEDULES || '',
 };
 
