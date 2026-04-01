@@ -130,10 +130,10 @@ importers:
         version: 0.31.8
       drizzle-orm:
         specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)
+        version: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)(postgres@3.4.8)
       drizzle-zod:
         specifier: ^0.8.3
-        version: 0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@4.3.6)
+        version: 0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2)(postgres@3.4.8))(zod@4.3.6)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
@@ -155,9 +155,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      pg:
-        specifier: ^8.16.3
-        version: 8.17.2
+      postgres:
+        specifier: ^3.4.8
+        version: 3.4.8
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -253,7 +253,7 @@ importers:
         specifier: ^4.19.2
         version: 4.21.0
       typescript:
-        specifier: ^5
+        specifier: ^5.9.3
         version: 5.9.3
 
 packages:
@@ -5443,6 +5443,10 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
+  postgres@3.4.8:
+    resolution: {integrity: sha512-d+JFcLM17njZaOLkv6SCev7uoLaBtfK86vMUXhW1Z4glPWh4jozno9APvW/XKFJ3CCxVoC7OL38BqRydtu5nGg==}
+    engines: {node: '>=12'}
+
   powershell-utils@0.1.0:
     resolution: {integrity: sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A==}
     engines: {node: '>=20'}
@@ -10183,14 +10187,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2):
+  drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2)(postgres@3.4.8):
     optionalDependencies:
       '@types/pg': 8.16.0
       pg: 8.17.2
+      postgres: 3.4.8
 
-  drizzle-zod@0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@4.3.6):
+  drizzle-zod@0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2)(postgres@3.4.8))(zod@4.3.6):
     dependencies:
-      drizzle-orm: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)
+      drizzle-orm: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)(postgres@3.4.8)
       zod: 4.3.6
 
   dunder-proto@1.0.1:
@@ -11981,6 +11986,8 @@ snapshots:
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
+
+  postgres@3.4.8: {}
 
   powershell-utils@0.1.0: {}
 

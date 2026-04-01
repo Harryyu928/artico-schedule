@@ -205,8 +205,10 @@ export async function getIndexStats(): Promise<{
     LIMIT 50
   `);
   
+  // postgres.js 返回的格式可能是数组或 { rows: [] }
+  const rows = Array.isArray(result) ? result : (result as any).rows || [];
   return {
-    indexes: result.rows as any[],
+    indexes: rows as any[],
   };
 }
 
@@ -236,8 +238,10 @@ export async function getUnusedIndexes(): Promise<{
     LIMIT 20
   `);
   
+  // postgres.js 返回的格式可能是数组或 { rows: [] }
+  const rows = Array.isArray(result) ? result : (result as any).rows || [];
   return {
-    indexes: result.rows as any[],
+    indexes: rows as any[],
   };
 }
 
@@ -264,7 +268,9 @@ export async function getTableSizeStats(): Promise<{
     LIMIT 20
   `);
   
+  // postgres.js 返回的格式可能是数组或 { rows: [] }
+  const rows = Array.isArray(result) ? result : (result as any).rows || [];
   return {
-    tables: result.rows as any[],
+    tables: rows as any[],
   };
 }

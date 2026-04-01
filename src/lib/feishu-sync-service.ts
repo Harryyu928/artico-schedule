@@ -568,7 +568,9 @@ async function generateStudentId(): Promise<string> {
   
   try {
     const result = await db.execute(sql`SELECT COUNT(*) as count FROM students WHERE student_id LIKE ${yearPrefix + '%'}`);
-    const count = Number(result.rows[0]?.count) || 0;
+    // postgres.js 返回的格式可能是数组或 { rows: [] }
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    const count = Number(rows[0]?.count) || 0;
     const sequence = (count + 1).toString().padStart(2, '0');
     return `${yearPrefix}${sequence}`;
   } catch {

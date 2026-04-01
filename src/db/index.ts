@@ -1,31 +1,39 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from './schema';
-import { loadEnv } from '@/storage/database/supabase-client';
-
-// 加载环境变量
-loadEnv();
 
 // 数据库连接配置
-const pool = new Pool({
-  connectionString: process.env.PGDATABASE_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '',
-  ssl: false, // URL中已包含sslmode参数
-  // 添加连接超时和错误处理
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
-  max: 20,
-});
+const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '';
 
-// 监听连接错误
-pool.on('error', (err) => {
-  console.error('数据库连接池错误:', err);
+if (!connectionString) {
+  console.warn('⚠️ DATABASE_URL 未配置，数据库功能将不可用');
+}
+
+// 创建 postgres.js 连接
+const client = postgres(connectionString, {
+  max: 20,
+  idle_timeout: 30,
+  connect_timeout: 10,
+  ssl: connectionString.includes('sslmode=require') ? 'require' : false,
+  onnotice: () => {}, // 忽略 NOTICE 消息
 });
 
 // 创建 Drizzle 实例
-export const db = drizzle(pool, { schema });
+export const db = drizzle(client, { schema });
 
 // 导出 schema
 export * from './schema';
 
-// 导出连接池（用于健康检查等）
-export { pool };
+// 导出连接（用于健康检查等）
+export { client };
+
+// 优雅关闭
+process.on('SIGINT', async () => {
+  await client.end();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await client.end();
+  process.exit(0);
+});
