@@ -57,12 +57,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // 初始化时尝试从 localStorage 恢复用户
   useEffect(() => {
+    // 只在客户端执行
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
-      const savedUser = localStorage.getItem('user');
+      const savedUser = localStorage.getItem('artico_user');
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
       } else {
-        // 默认使用管理员角色（开发模式）
+        // 默认使用管理员角色
         const defaultUser: User = {
           id: 'default-admin',
           name: '张主管',
@@ -70,10 +77,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
           role: '管理员',
         };
         setUser(defaultUser);
-        localStorage.setItem('user', JSON.stringify(defaultUser));
+        localStorage.setItem('artico_user', JSON.stringify(defaultUser));
       }
     } catch (e) {
       console.error('Failed to load user from localStorage:', e);
+      // 出错时也设置默认用户
+      const defaultUser: User = {
+        id: 'default-admin',
+        name: '张主管',
+        email: 'admin@artico.com',
+        role: '管理员',
+      };
+      setUser(defaultUser);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +109,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       
       if (data.success && data.user) {
         setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('artico_user', JSON.stringify(data.user));
+        }
         return true;
       } else {
         setError(data.error || '登录失败');
@@ -111,7 +128,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // 登出
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('artico_user');
+    }
   };
 
   // 切换角色（开发模式）
@@ -127,7 +146,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (user) {
       const newUser = { ...user, role, name: roleNames[role] || '用户' };
       setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('artico_user', JSON.stringify(newUser));
+      }
     }
   };
 
