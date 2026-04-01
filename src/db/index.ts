@@ -10,11 +10,16 @@ if (!connectionString) {
 }
 
 // 创建 postgres.js 连接
+// Supabase 和大多数云数据库需要 SSL 连接
+const needsSSL = connectionString.includes('supabase') || 
+                 connectionString.includes('sslmode=require') ||
+                 connectionString.includes('pooler');
+
 const client = postgres(connectionString, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
-  ssl: connectionString.includes('sslmode=require') ? 'require' : false,
+  ssl: needsSSL ? 'require' : false,
   onnotice: () => {}, // 忽略 NOTICE 消息
 });
 
