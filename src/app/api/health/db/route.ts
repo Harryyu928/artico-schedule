@@ -1,38 +1,70 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
-import { sql } from 'drizzle-orm';
 
 export async function GET() {
-  try {
-    // 测试数据库连接
-    const result = await db.execute(sql`SELECT NOW() as current_time`);
-    
-    // 查询各表数量
-    const tables = await db.execute(sql`
-      SELECT 
-        (SELECT COUNT(*) FROM users) as users_count,
-        (SELECT COUNT(*) FROM students) as students_count,
-        (SELECT COUNT(*) FROM teachers) as teachers_count
-    `);
-    
-    const rows = Array.isArray(tables) ? tables : (tables as any).rows || [];
-    
-    return NextResponse.json({
-      success: true,
-      message: '数据库连接成功',
-      currentTime: Array.isArray(result) ? result[0]?.current_time : (result as any).rows?.[0]?.current_time,
-      data: {
-        users: rows[0]?.users_count || 0,
-        students: rows[0]?.students_count || 0,
-        teachers: rows[0]?.teachers_count || 0,
-      }
-    });
-  } catch (error) {
-    console.error('Database connection error:', error);
+  const connectionString = process.env.DATABASE_URL || '';
+  
+  // 隐藏密码显示连接信息
+  const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
+  
+  // 检查环境变量是否存在
+  if (!connectionString) {
     return NextResponse.json({
       success: false,
-      error: '数据库连接失败',
-      details: error instanceof Error ? error.message : '未知错误'
-    }, { status: 500 });
+      error: 'DATABASE_URL 未配置',
+    });
+  }
+
+  // 动态导入 postgres
+  try {
+    const postgres = (await import('postgres')).default;
+    
+    // 测试不同配置
+    const configs = [
+      { name: 'SSL require', ssl: 'require' },
+      { name: 'No SSL', ssl: false },
+    ];
+    
+    const results = [];
+    
+    for (const config of configs) {
+      try {
+        const client = postgres(connectionString, {
+          max: 1,
+          connect_timeout: 5,
+          ssl: config.ssl,
+          onnotice: () => {},
+        });
+        
+        const result = await client`SELECT NOW() as time`;
+        await client.end();
+        
+        results.push({
+          config: config.name,
+          success: true,
+          time: result[0]?.time,
+        });
+      } catch (err) {
+        results.push({
+          config: config.name,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    
+    return NextResponse.json({
+      success: results.some(r => r.success),
+      connectionUrl: maskedUrl,
+      urlLength: connectionString.length,
+      hasSupabase: connectionString.includes('supabase'),
+      results,
+    });
+    
+  } catch (err) {
+    return NextResponse.json({
+      success: false,
+      error: '导入 postgres 模块失败',
+      details: err instanceof Error ? err.message : String(err),
+    });
   }
 }
