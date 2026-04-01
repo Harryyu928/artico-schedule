@@ -20,8 +20,8 @@ export async function GET() {
     
     // 测试不同配置
     const configs = [
-      { name: 'SSL require', ssl: 'require' },
-      { name: 'No SSL', ssl: false },
+      { name: 'SSL require', ssl: 'require' as const },
+      { name: 'No SSL', ssl: false as const },
     ];
     
     const results = [];
