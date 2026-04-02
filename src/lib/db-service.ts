@@ -82,46 +82,28 @@ export async function createStudent(data: CreateStudentRequest) {
   const id = uuidv4();
   const studentId = await generateStudentId();
   
-  try {
-    const [student] = await db.insert(students).values({
-      id,
-      studentId,
-      name: data.name,
-      major: data.major as any,
-      applicationCountry: data.application_country as any,
-      currentStage: data.current_stage as any,
-      totalHours: data.total_hours,
-      consumedHours: 0,
-      remainingHours: data.total_hours,
-    }).returning();
+  const [student] = await db.insert(students).values({
+    id,
+    studentId,
+    name: data.name,
+    major: data.major as any,
+    applicationCountry: data.application_country as any,
+    currentStage: data.current_stage as any,
+    totalHours: data.total_hours,
+    consumedHours: 0,
+    remainingHours: data.total_hours,
+  }).returning();
 
-    // 自动创建学生入学流程工作流实例（异步执行，不阻塞学生创建）
-    createStudentOnboardingWorkflow(student.id, student.name)
-      .then((workflow) => {
-        console.log(`[Student] Created onboarding workflow for student ${student.name}:`, workflow?.id);
-      })
-      .catch((error) => {
-        console.error(`[Student] Failed to create onboarding workflow:`, error);
-      });
+  // 自动创建学生入学流程工作流实例（异步执行，不阻塞学生创建）
+  createStudentOnboardingWorkflow(student.id, student.name)
+    .then((workflow) => {
+      console.log(`[Student] Created onboarding workflow for student ${student.name}:`, workflow?.id);
+    })
+    .catch((error) => {
+      console.error(`[Student] Failed to create onboarding workflow:`, error);
+    });
 
-    return student;
-  } catch (error) {
-    console.error('创建学生失败:', error);
-    // 返回模拟数据
-    return {
-      id,
-      studentId,
-      name: data.name,
-      major: data.major,
-      applicationCountry: data.application_country,
-      currentStage: data.current_stage,
-      totalHours: data.total_hours,
-      consumedHours: 0,
-      remainingHours: data.total_hours,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  }
+  return student;
 }
 
 export async function getStudents(options?: {
@@ -163,30 +145,16 @@ export async function createTeacher(data: CreateTeacherRequest) {
   const id = uuidv4();
   const teacherId = `TCH${Date.now()}`;
   
-  try {
-    const [teacher] = await db.insert(teachers).values({
-      id,
-      teacherId,
-      name: data.name,
-      teachableCourses: data.teachable_courses as any,
-      maxWeeklyHours: data.max_weekly_hours,
-      currentHours: 0,
-    }).returning();
+  const [teacher] = await db.insert(teachers).values({
+    id,
+    teacherId,
+    name: data.name,
+    teachableCourses: data.teachable_courses as any,
+    maxWeeklyHours: data.max_weekly_hours,
+    currentHours: 0,
+  }).returning();
 
-    return teacher;
-  } catch (error) {
-    console.error('创建导师失败:', error);
-    return {
-      id,
-      teacherId,
-      name: data.name,
-      teachableCourses: data.teachable_courses,
-      maxWeeklyHours: data.max_weekly_hours,
-      currentHours: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  }
+  return teacher;
 }
 
 export async function getTeachers(options?: {
@@ -226,32 +194,17 @@ export async function deleteTeacher(id: string) {
 export async function createCourse(data: CreateCourseRequest) {
   const id = uuidv4();
   
-  try {
-    const [course] = await db.insert(courses).values({
-      id,
-      courseId: data.course_id,
-      name: data.name,
-      type: data.type as any,
-      category: data.category as any,
-      duration: data.duration as any,
-      description: data.description,
-    }).returning();
+  const [course] = await db.insert(courses).values({
+    id,
+    courseId: data.course_id,
+    name: data.name,
+    type: data.type as any,
+    category: data.category as any,
+    duration: data.duration as any,
+    description: data.description,
+  }).returning();
 
-    return course;
-  } catch (error) {
-    console.error('创建课程失败:', error);
-    return {
-      id,
-      courseId: data.course_id,
-      name: data.name,
-      type: data.type,
-      category: data.category,
-      duration: data.duration,
-      description: data.description,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  }
+  return course;
 }
 
 export async function getCourses(options?: {
