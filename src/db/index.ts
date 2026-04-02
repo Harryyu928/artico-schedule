@@ -10,16 +10,18 @@ if (!connectionString) {
 }
 
 // 创建 postgres.js 连接
-// Supabase 和大多数云数据库需要 SSL 连接
-const needsSSL = connectionString.includes('supabase') || 
-                 connectionString.includes('sslmode=require') ||
-                 connectionString.includes('pooler');
+// 云数据库（Supabase、Neon、AWS RDS 等）都需要 SSL 连接
+// 生产环境默认启用 SSL，除非明确设置 sslmode=disable
+const shouldDisableSSL = connectionString.includes('sslmode=disable') || 
+                          connectionString.includes('localhost') ||
+                          connectionString.includes('127.0.0.1');
 
 const client = postgres(connectionString, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
-  ssl: needsSSL ? 'require' : false,
+  // 生产环境默认启用 SSL，本地开发可以禁用
+  ssl: shouldDisableSSL ? false : 'require',
   onnotice: () => {}, // 忽略 NOTICE 消息
 });
 
